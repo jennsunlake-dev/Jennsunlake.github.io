@@ -85,25 +85,29 @@
             margin-bottom: 30px;
             padding: 20px 0;
             position: relative;
+            padding-top: max(50px, env(safe-area-inset-top) + 30px);
         }
 
         .theme-toggle {
             position: absolute;
-            top: 20px;
-            right: 20px;
+            top: max(10px, env(safe-area-inset-top) + 10px);
+            right: 15px;
             background: rgba(255, 255, 255, 0.1);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            border-radius: 25px;
-            padding: 8px 16px;
+            border-radius: 20px;
+            padding: 6px 12px;
             color: #ffffff;
             cursor: pointer;
-            font-size: 0.9rem;
+            font-size: 0.8rem;
             transition: all 0.3s ease;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
+            z-index: 100;
+            min-width: 100px;
+            justify-content: center;
         }
 
         .theme-toggle:hover, .theme-toggle:active {
@@ -121,21 +125,56 @@
             background: rgba(0, 0, 0, 0.2);
         }
 
+        .beta-badge {
+            position: absolute;
+            top: max(10px, env(safe-area-inset-top) + 10px);
+            left: 15px;
+            background: linear-gradient(45deg, #ff6b6b, #ff8e53);
+            color: white;
+            padding: 6px 12px;
+            border-radius: 15px;
+            font-size: 0.75rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 2px 10px rgba(255, 107, 107, 0.3);
+            animation: pulseGlow 2s infinite alternate;
+            z-index: 100;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+        }
+
+        .light-mode .beta-badge {
+            border-color: rgba(0, 0, 0, 0.1);
+        }
+
+        @keyframes pulseGlow {
+            0% {
+                box-shadow: 0 2px 10px rgba(255, 107, 107, 0.3);
+                transform: scale(1);
+            }
+            100% {
+                box-shadow: 0 4px 20px rgba(255, 107, 107, 0.6);
+                transform: scale(1.02);
+            }
+        }
+
         .header h1 {
-            font-size: clamp(1.8rem, 5vw, 2.5rem);
+            font-size: clamp(1.6rem, 4.5vw, 2.5rem);
             font-weight: 700;
             background: linear-gradient(45deg, #ff6b6b, #4ecdc4, #45b7d1);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
             margin-bottom: 10px;
+            padding: 0 130px; /* Space for badges on both sides */
         }
 
         .header-subtitle {
-            font-size: clamp(0.9rem, 3vw, 1.1rem);
+            font-size: clamp(0.85rem, 2.8vw, 1.1rem);
             color: #a0a0a0;
             font-weight: 300;
             padding: 0 20px;
+            line-height: 1.4;
         }
 
         .light-mode .header-subtitle {
@@ -249,6 +288,11 @@
 
         .media-type-btn:active {
             transform: scale(0.95);
+        }
+
+        .movies-section, .tv-section {
+            margin-bottom: 40px;
+            transition: all 0.3s ease;
         }
 
         .section-header {
@@ -1031,14 +1075,35 @@
             .header {
                 margin-bottom: 20px;
                 padding: 15px 0;
+                padding-top: max(45px, env(safe-area-inset-top) + 25px);
             }
             
             .theme-toggle {
-                top: 10px;
+                top: max(8px, env(safe-area-inset-top) + 8px);
                 right: 10px;
-                padding: 6px 12px;
-                font-size: 0.8rem;
-                gap: 6px;
+                padding: 5px 8px;
+                font-size: 0.75rem;
+                gap: 4px;
+                min-width: 80px;
+                border-radius: 15px;
+            }
+            
+            .beta-badge {
+                top: max(8px, env(safe-area-inset-top) + 8px);
+                left: 10px;
+                padding: 5px 8px;
+                font-size: 0.7rem;
+                border-radius: 12px;
+            }
+            
+            .header h1 {
+                font-size: clamp(1.4rem, 6vw, 2rem);
+                padding: 0 100px; /* Reduced padding for mobile */
+            }
+            
+            .header-subtitle {
+                font-size: clamp(0.8rem, 3.5vw, 0.95rem);
+                padding: 0 15px;
             }
             
             .search-section {
@@ -1131,6 +1196,33 @@
             }
         }
 
+        /* Extra small mobile devices */
+        @media (max-width: 480px) {
+            .header h1 {
+                padding: 0 90px;
+                font-size: 1.3rem;
+            }
+            
+            .theme-toggle {
+                min-width: 70px;
+                padding: 4px 6px;
+            }
+            
+            .theme-toggle span {
+                font-size: 0.7rem;
+            }
+            
+            .beta-badge {
+                padding: 4px 6px;
+                font-size: 0.65rem;
+            }
+            
+            .results-grid {
+                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+                gap: 10px;
+            }
+        }
+
         /* iPhone X and newer notch support */
         @supports (padding: max(0px)) {
             .container {
@@ -1202,9 +1294,12 @@
 <body>
     <div class="container">
         <div class="header">
+            <div class="beta-badge">
+                ⚡ BETA
+            </div>
             <button class="theme-toggle" onclick="toggleTheme()">
                 <span id="themeIcon">🌙</span>
-                <span id="themeText">Light Mode</span>
+                <span id="themeText">Light</span>
             </button>
             <h1>🎬 Notflix Request Portal</h1>
             <p class="header-subtitle">Request your favorite movies and TV shows for our Plex server</p>
@@ -1263,32 +1358,36 @@
 
         <div id="mainContent" class="content-locked">
             <!-- Popular Movies Section -->
-            <div class="section-header">
-                <h2 class="section-title">🍿 Popular Movies</h2>
-                <div class="section-controls">
-                    <button class="view-all-btn" onclick="loadMoreMovies()" id="loadMoreMoviesBtn">Load More</button>
-                    <button class="view-all-btn" onclick="showAllMovies()">View All Movies</button>
+            <div class="movies-section" id="moviesSection">
+                <div class="section-header">
+                    <h2 class="section-title">🍿 Popular Movies</h2>
+                    <div class="section-controls">
+                        <button class="view-all-btn" onclick="loadMoreMovies()" id="loadMoreMoviesBtn">Load More</button>
+                        <button class="view-all-btn" onclick="showAllMovies()">View All Movies</button>
+                    </div>
                 </div>
-            </div>
-            <div id="popularMovies" class="results-grid">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p>Loading popular movies...</p>
+                <div id="popularMovies" class="results-grid">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading popular movies...</p>
+                    </div>
                 </div>
             </div>
 
             <!-- Popular TV Shows Section -->
-            <div class="section-header">
-                <h2 class="section-title">📺 Popular TV Shows</h2>
-                <div class="section-controls">
-                    <button class="view-all-btn" onclick="loadMoreTVShows()" id="loadMoreTVBtn">Load More</button>
-                    <button class="view-all-btn" onclick="showAllTVShows()">View All TV Shows</button>
+            <div class="tv-section" id="tvSection">
+                <div class="section-header">
+                    <h2 class="section-title">📺 Popular TV Shows</h2>
+                    <div class="section-controls">
+                        <button class="view-all-btn" onclick="loadMoreTVShows()" id="loadMoreTVBtn">Load More</button>
+                        <button class="view-all-btn" onclick="showAllTVShows()">View All TV Shows</button>
+                    </div>
                 </div>
-            </div>
-            <div id="popularTVShows" class="results-grid">
-                <div class="loading">
-                    <div class="spinner"></div>
-                    <p>Loading popular TV shows...</p>
+                <div id="popularTVShows" class="results-grid">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading popular TV shows...</p>
+                    </div>
                 </div>
             </div>
 
@@ -1695,14 +1794,18 @@
             const isLight = document.body.classList.contains('light-mode');
             
             document.getElementById('themeIcon').textContent = isLight ? '☀️' : '🌙';
-            document.getElementById('themeText').textContent = isLight ? 'Dark Mode' : 'Light Mode';
+            document.getElementById('themeText').textContent = isLight ? 'Dark' : 'Light';
             
             localStorage.setItem('theme', isLight ? 'light' : 'dark');
         }
 
-        // Media type switching
+        // Enhanced Media type switching with proper filtering
         function changeMediaType(type) {
+            console.log('🎬 Changing media type to:', type);
+            
             currentMediaType = type;
+            
+            // Update button styles
             document.querySelectorAll('.media-type-btn').forEach(btn => {
                 btn.classList.remove('active');
                 if (btn.dataset.type === type) {
@@ -1710,12 +1813,46 @@
                 }
             });
             
-            // Hide browse section when changing media type
+            // Hide other sections when switching types
             document.getElementById('browseSection').style.display = 'none';
             document.getElementById('searchResultsSection').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
             
-            loadPopularContent();
+            // Filter the displayed content based on selected type
+            filterContentSections(type);
+        }
+
+        // New function to show/hide entire sections based on media type
+        function filterContentSections(type) {
+            console.log('🔍 Filtering sections for:', type);
+            
+            // Get the section containers by their new IDs
+            const moviesSection = document.getElementById('moviesSection');
+            const tvSection = document.getElementById('tvSection');
+            
+            // Show/hide entire sections based on type
+            switch(type) {
+                case 'movie':
+                    console.log('📽️ Showing only movies');
+                    if (moviesSection) moviesSection.style.display = 'block';
+                    if (tvSection) tvSection.style.display = 'none';
+                    break;
+                    
+                case 'tv':
+                    console.log('📺 Showing only TV shows');
+                    if (moviesSection) moviesSection.style.display = 'none';
+                    if (tvSection) tvSection.style.display = 'block';
+                    break;
+                    
+                case 'multi':
+                default:
+                    console.log('🎭 Showing both movies and TV shows');
+                    if (moviesSection) moviesSection.style.display = 'block';
+                    if (tvSection) tvSection.style.display = 'block';
+                    break;
+            }
+            
+            console.log('✅ Content sections filtered for:', type);
         }
 
         // Enhanced content loading
@@ -2602,6 +2739,29 @@
             }
         }
 
+        // Debug function to test media type filtering
+        function testMediaFiltering() {
+            console.log('🧪 Testing media type filtering...');
+            console.log('Movies section:', document.getElementById('moviesSection'));
+            console.log('TV section:', document.getElementById('tvSection'));
+            
+            // Test movie filter
+            console.log('Testing Movies only...');
+            changeMediaType('movie');
+            
+            setTimeout(() => {
+                console.log('Testing TV only...');
+                changeMediaType('tv');
+            }, 2000);
+            
+            setTimeout(() => {
+                console.log('Testing All content...');
+                changeMediaType('multi');
+            }, 4000);
+            
+            console.log('✅ Watch the sections show/hide above');
+        }
+
         // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
             addTouchSupport();
@@ -2610,7 +2770,7 @@
             if (savedTheme === 'light') {
                 document.body.classList.add('light-mode');
                 document.getElementById('themeIcon').textContent = '☀️';
-                document.getElementById('themeText').textContent = 'Dark Mode';
+                document.getElementById('themeText').textContent = 'Dark';
             }
             
             if (!checkSavedSession()) {
