@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Notflix Portal">
@@ -35,6 +36,8 @@
         window.updateDoc = updateDoc;
         window.onSnapshot = onSnapshot;
         window.getDocs = getDocs;
+
+        console.log('🔥 Firebase initialized successfully');
     </script>
     <style>
         * {
@@ -166,7 +169,7 @@
             -webkit-text-fill-color: transparent;
             background-clip: text;
             margin-bottom: 10px;
-            padding: 0 130px; /* Space for badges on both sides */
+            padding: 0 130px;
         }
 
         .header-subtitle {
@@ -204,7 +207,7 @@
         .search-input {
             width: 100%;
             padding: 16px 60px 16px 20px;
-            font-size: 16px; /* iOS requires 16px to prevent zoom */
+            font-size: 16px;
             background: rgba(255, 255, 255, 0.1);
             border: 2px solid rgba(255, 255, 255, 0.2);
             border-radius: 15px;
@@ -487,62 +490,6 @@
             background: linear-gradient(45deg, #ff6b6b, #ff4444);
         }
 
-        .pagination {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 10px;
-            margin: 30px 0;
-            flex-wrap: wrap;
-        }
-
-        .page-btn {
-            background: rgba(255, 255, 255, 0.1);
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            color: #ffffff;
-            padding: 8px 12px;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            font-weight: 500;
-            font-size: 0.9rem;
-            min-width: 40px;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
-        }
-
-        .light-mode .page-btn {
-            background: rgba(0, 0, 0, 0.05);
-            border-color: rgba(0, 0, 0, 0.2);
-            color: #212529;
-        }
-
-        .page-btn:active {
-            transform: scale(0.95);
-        }
-
-        .page-btn.active {
-            background: linear-gradient(45deg, #4ecdc4, #45b7d1);
-            border-color: #4ecdc4;
-        }
-
-        .page-btn:disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-        }
-
-        .page-info {
-            color: #a0a0a0;
-            font-size: 0.85rem;
-            text-align: center;
-            width: 100%;
-            margin-top: 5px;
-        }
-
-        .light-mode .page-info {
-            color: #6c757d;
-        }
-
         .user-info {
             background: rgba(255, 255, 255, 0.05);
             backdrop-filter: blur(10px);
@@ -609,82 +556,74 @@
             background: #fafafa;
         }
 
-        .user-profile {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex: 1;
-        }
-
-        .user-avatar {
-            width: 45px;
-            height: 45px;
-            border-radius: 50%;
-            border: 2px solid #4ecdc4;
-        }
-
-        .user-details-signed-in {
-            display: flex;
-            flex-direction: column;
-            flex: 1;
-        }
-
-        .user-name {
-            font-weight: 600;
-            color: #ffffff;
-            font-size: 1rem;
-        }
-
-        .light-mode .user-name {
-            color: #212529;
-        }
-
-        .user-email {
-            color: #a0a0a0;
-            font-size: 0.8rem;
-        }
-
-        .light-mode .user-email {
-            color: #6c757d;
-        }
-
-        .user-controls {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            flex-wrap: wrap;
-        }
-
-        .sign-out-btn {
+        .email-input {
+            width: 100%;
+            max-width: 300px;
+            padding: 12px 16px;
+            font-size: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 8px;
             background: rgba(255, 255, 255, 0.1);
             color: #ffffff;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            padding: 8px 16px;
-            border-radius: 8px;
-            cursor: pointer;
+            margin-bottom: 15px;
+            outline: none;
             transition: all 0.3s ease;
-            font-size: 0.9rem;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
+            -webkit-appearance: none;
         }
 
-        .light-mode .sign-out-btn {
-            background: rgba(0, 0, 0, 0.05);
+        .email-input:focus {
+            border-color: #4ecdc4;
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .email-input::placeholder {
+            color: #a0a0a0;
+        }
+
+        .light-mode .email-input {
+            background: rgba(255, 255, 255, 0.9);
+            border-color: rgba(0, 0, 0, 0.3);
             color: #212529;
-            border-color: rgba(0, 0, 0, 0.2);
         }
 
-        .sign-out-btn:active {
-            transform: scale(0.95);
+        .light-mode .email-input:focus {
+            background: rgba(255, 255, 255, 1);
         }
 
-        .requests-remaining {
-            background: linear-gradient(45deg, #ff6b6b, #ff8e53);
-            padding: 8px 16px;
-            border-radius: 15px;
+        .user-tier {
+            display: inline-block;
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
             font-weight: 600;
-            font-size: 0.85rem;
-            white-space: nowrap;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-left: 8px;
+        }
+
+        .tier-STANDARD {
+            background: linear-gradient(45deg, #6c757d, #495057);
+            color: #ffffff;
+        }
+
+        .tier-PRO {
+            background: linear-gradient(45deg, #9b59b6, #8e44ad);
+            color: #ffffff;
+        }
+
+        .tier-VIP {
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            color: #212529;
+        }
+
+        .vip-badge {
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            color: #212529;
+            padding: 3px 6px;
+            border-radius: 8px;
+            font-size: 0.65rem;
+            font-weight: bold;
+            margin-left: 6px;
         }
 
         .content-locked {
@@ -734,335 +673,60 @@
             100% { transform: rotate(360deg); }
         }
 
-        .modal {
-            display: none;
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: rgba(0, 0, 0, 0.8);
-            z-index: 1000;
-            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
-        }
-
-        .modal-content {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            background: linear-gradient(135deg, #1a1a3a 0%, #2d1b4e 100%);
-            padding: 25px;
-            border-radius: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.2);
-            max-width: 95vw;
-            width: 90%;
-            max-height: 80vh;
-            overflow-y: auto;
-            transition: all 0.3s ease;
-            -webkit-overflow-scrolling: touch;
-        }
-
-        .light-mode .modal-content {
-            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
-            border-color: rgba(0, 0, 0, 0.2);
-        }
-
-        .modal h3 {
-            margin-bottom: 20px;
-            color: #ffffff;
-            font-size: 1.3rem;
-        }
-
-        .light-mode .modal h3 {
-            color: #212529;
-        }
-
-        .modal-buttons {
+        .pagination {
             display: flex;
-            gap: 10px;
-            justify-content: flex-end;
-            margin-top: 25px;
-            flex-wrap: wrap;
-        }
-
-        .modal-btn {
-            padding: 12px 20px;
-            border: none;
-            border-radius: 10px;
-            cursor: pointer;
-            font-weight: 600;
-            font-size: 0.9rem;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
-            flex: 1;
-            min-width: 100px;
-        }
-
-        .modal-btn:active {
-            transform: scale(0.98);
-        }
-
-        .modal-btn.primary {
-            background: linear-gradient(45deg, #4ecdc4, #45b7d1);
-            color: #ffffff;
-        }
-
-        .modal-btn.secondary {
-            background: rgba(255, 255, 255, 0.1);
-            color: #ffffff;
-        }
-
-        .light-mode .modal-btn.secondary {
-            background: rgba(0, 0, 0, 0.05);
-            color: #212529;
-        }
-
-        .user-tier {
-            display: inline-block;
-            padding: 4px 8px;
-            border-radius: 12px;
-            font-size: 0.7rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-left: 8px;
-        }
-
-        .tier-STANDARD {
-            background: linear-gradient(45deg, #6c757d, #495057);
-            color: #ffffff;
-        }
-
-        .tier-PRO {
-            background: linear-gradient(45deg, #9b59b6, #8e44ad);
-            color: #ffffff;
-        }
-
-        .tier-VIP {
-            background: linear-gradient(45deg, #ffd700, #ffed4e);
-            color: #212529;
-        }
-
-        .vip-badge {
-            background: linear-gradient(45deg, #ffd700, #ffed4e);
-            color: #212529;
-            padding: 3px 6px;
-            border-radius: 8px;
-            font-size: 0.65rem;
-            font-weight: bold;
-            margin-left: 6px;
-        }
-
-        .email-input {
-            width: 100%;
-            max-width: 300px;
-            padding: 12px 16px;
-            font-size: 16px; /* iOS requires 16px to prevent zoom */
-            border: 2px solid rgba(255, 255, 255, 0.3);
-            border-radius: 8px;
-            background: rgba(255, 255, 255, 0.1);
-            color: #ffffff;
-            margin-bottom: 15px;
-            outline: none;
-            transition: all 0.3s ease;
-            -webkit-appearance: none;
-        }
-
-        .email-input:focus {
-            border-color: #4ecdc4;
-            background: rgba(255, 255, 255, 0.15);
-        }
-
-        .email-input::placeholder {
-            color: #a0a0a0;
-        }
-
-        .light-mode .email-input {
-            background: rgba(255, 255, 255, 0.9);
-            border-color: rgba(0, 0, 0, 0.3);
-            color: #212529;
-        }
-
-        .light-mode .email-input:focus {
-            background: rgba(255, 255, 255, 1);
-        }
-
-        /* Episode selection styles */
-        .season-section {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .light-mode .season-section {
-            background: rgba(0, 0, 0, 0.02);
-            border-color: rgba(0, 0, 0, 0.1);
-        }
-
-        .season-header {
-            display: flex;
-            justify-content: space-between;
+            justify-content: center;
             align-items: center;
-            margin-bottom: 15px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.2);
-            flex-wrap: wrap;
             gap: 10px;
+            margin: 30px 0;
+            flex-wrap: wrap;
         }
 
-        .light-mode .season-header {
-            border-bottom-color: rgba(0, 0, 0, 0.2);
-        }
-
-        .season-title {
-            font-size: 1.1rem;
-            font-weight: 600;
-            color: #4ecdc4;
-        }
-
-        .select-all-btn {
-            padding: 6px 12px;
-            background: linear-gradient(45deg, #ff6b6b, #ff8e53);
-            border: none;
-            border-radius: 6px;
+        .page-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: #ffffff;
-            font-size: 0.8rem;
-            font-weight: 600;
+            padding: 8px 12px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
+            font-weight: 500;
+            font-size: 0.9rem;
+            min-width: 40px;
             -webkit-tap-highlight-color: transparent;
             touch-action: manipulation;
         }
 
-        .select-all-btn:active {
-            transform: scale(0.95);
-        }
-
-        .select-all-btn.selected {
-            background: linear-gradient(45deg, #4ecdc4, #45b7d1);
-        }
-
-        .episodes-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-            gap: 8px;
-        }
-
-        .episode-btn {
-            padding: 8px 6px;
-            background: rgba(255, 255, 255, 0.08);
-            border: 1px solid rgba(255, 255, 255, 0.15);
-            border-radius: 6px;
-            color: #ffffff;
-            font-size: 0.8rem;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            text-align: center;
-            position: relative;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: manipulation;
-        }
-
-        .light-mode .episode-btn {
-            background: rgba(0, 0, 0, 0.03);
-            border-color: rgba(0, 0, 0, 0.15);
+        .light-mode .page-btn {
+            background: rgba(0, 0, 0, 0.05);
+            border-color: rgba(0, 0, 0, 0.2);
             color: #212529;
         }
 
-        .episode-btn:active {
+        .page-btn:active {
             transform: scale(0.95);
         }
 
-        .episode-btn.selected {
+        .page-btn.active {
             background: linear-gradient(45deg, #4ecdc4, #45b7d1);
             border-color: #4ecdc4;
-            font-weight: 600;
         }
 
-        .episode-title {
-            font-size: 0.7rem;
+        .page-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .page-info {
             color: #a0a0a0;
-            margin-top: 4px;
-            display: block;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            white-space: nowrap;
-        }
-
-        .loading-episodes {
+            font-size: 0.85rem;
             text-align: center;
-            padding: 20px;
-            color: #a0a0a0;
+            width: 100%;
+            margin-top: 5px;
         }
 
-        .summary-section {
-            margin-top: 20px;
-            padding: 15px;
-            background: rgba(78, 205, 196, 0.1);
-            border-radius: 8px;
-            border: 1px solid rgba(78, 205, 196, 0.3);
-        }
-
-        .summary-title {
-            font-size: 1rem;
-            font-weight: 600;
-            color: #4ecdc4;
-            margin-bottom: 10px;
-        }
-
-        .summary-content {
-            font-size: 0.9rem;
-            line-height: 1.6;
-            color: #ffffff;
-        }
-
-        .light-mode .summary-content {
-            color: #212529;
-        }
-
-        .episode-count {
-            display: inline-block;
-            padding: 2px 6px;
-            background: rgba(255, 255, 255, 0.2);
-            border-radius: 4px;
-            font-size: 0.7rem;
-            margin-left: 8px;
-        }
-
-        .episode-status {
-            margin-bottom: 10px;
-            padding: 8px;
-            background: rgba(40, 167, 69, 0.1);
-            border-radius: 6px;
-            border: 1px solid rgba(40, 167, 69, 0.3);
-            font-size: 0.8rem;
-            line-height: 1.5;
-        }
-
-        .episode-status-item {
-            display: inline-block;
-            margin: 2px 4px;
-            padding: 2px 6px;
-            background: linear-gradient(45deg, #28a745, #218838);
-            color: white;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 500;
-        }
-
-        .episode-status-pending {
-            background: linear-gradient(45deg, #6c757d, #5a6268);
-        }
-
-        .episode-status-downloading {
-            background: linear-gradient(45deg, #0099ff, #007acc);
-        }
-
-        .episode-status-error {
-            background: linear-gradient(45deg, #dc3545, #c82333);
+        .light-mode .page-info {
+            color: #6c757d;
         }
 
         /* Mobile-specific adjustments */
@@ -1097,8 +761,8 @@
             }
             
             .header h1 {
+                padding: 0 100px;
                 font-size: clamp(1.4rem, 6vw, 2rem);
-                padding: 0 100px; /* Reduced padding for mobile */
             }
             
             .header-subtitle {
@@ -1139,60 +803,11 @@
                 justify-content: center;
             }
             
-            .pagination {
-                gap: 8px;
-                margin: 20px 0;
-            }
-            
-            .page-btn {
-                padding: 6px 10px;
-                font-size: 0.8rem;
-                min-width: 35px;
-            }
-            
             .user-info {
                 flex-direction: column;
                 gap: 15px;
                 text-align: center;
                 padding: 15px;
-            }
-            
-            .user-profile {
-                justify-content: center;
-            }
-            
-            .user-controls {
-                justify-content: center;
-                width: 100%;
-            }
-            
-            .modal-content {
-                padding: 20px;
-                width: 95%;
-                max-height: 85vh;
-            }
-            
-            .modal-buttons {
-                flex-direction: column;
-                gap: 10px;
-            }
-            
-            .modal-btn {
-                width: 100%;
-            }
-            
-            .episodes-grid {
-                grid-template-columns: repeat(auto-fill, minmax(80px, 1fr));
-                gap: 6px;
-            }
-            
-            .episode-btn {
-                padding: 6px 4px;
-                font-size: 0.75rem;
-            }
-            
-            .episode-title {
-                font-size: 0.65rem;
             }
         }
 
@@ -1237,66 +852,12 @@
                 }
             }
         }
-
-        /* Landscape orientation adjustments */
-        @media (max-width: 768px) and (orientation: landscape) {
-            .header h1 {
-                font-size: 1.8rem;
-            }
-            
-            .header-subtitle {
-                font-size: 0.9rem;
-            }
-            
-            .results-grid {
-                grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
-            }
-            
-            .media-poster {
-                height: 180px;
-            }
-        }
-
-        /* High DPI displays */
-        @media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
-            .spinner {
-                border-width: 2px;
-            }
-        }
-
-        /* Dark mode media query support */
-        @media (prefers-color-scheme: light) {
-            body:not(.light-mode-override) {
-                background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 50%, #dee2e6 100%);
-                color: #212529;
-            }
-        }
-
-        /* Reduce motion for accessibility */
-        @media (prefers-reduced-motion: reduce) {
-            * {
-                animation-duration: 0.01ms !important;
-                animation-iteration-count: 1 !important;
-                transition-duration: 0.01ms !important;
-            }
-        }
-
-        /* Focus styles for accessibility */
-        button:focus-visible,
-        input:focus-visible,
-        .episode-btn:focus-visible,
-        .media-type-btn:focus-visible {
-            outline: 2px solid #4ecdc4;
-            outline-offset: 2px;
-        }
     </style>
 </head>
 <body>
     <div class="container">
         <div class="header">
-            <div class="beta-badge">
-                ⚡ BETA
-            </div>
+            <div class="beta-badge">⚡ BETA</div>
             <button class="theme-toggle" onclick="toggleTheme()">
                 <span id="themeIcon">🌙</span>
                 <span id="themeText">Light</span>
@@ -1326,7 +887,7 @@
                      data-logo_alignment="left">
                 </div>
                 
-                <!-- Fallback Email Sign-In -->
+                <!-- Email Sign-In -->
                 <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
                     <p style="font-size: 0.9rem; color: #a0a0a0; margin-bottom: 15px;">Or sign in with email:</p>
                     <input type="email" class="email-input" id="emailInput" placeholder="Enter your authorized email">
@@ -1346,7 +907,7 @@
         <div class="search-section content-locked">
             <div class="search-container">
                 <input type="text" class="search-input" id="searchInput" placeholder="Search for movies and TV shows...">
-                <button class="search-btn" onclick="searchMedia()">🔍</button>
+                <button class="search-btn" id="searchBtn">🔍</button>
             </div>
             
             <div class="media-type-selector">
@@ -1390,64 +951,48 @@
                     </div>
                 </div>
             </div>
-
-            <!-- Search Results Section -->
-            <div id="searchResultsSection" style="display: none;">
-                <div class="section-header">
-                    <h2 class="section-title" id="searchResultsTitle">🔍 Search Results</h2>
-                    <button class="view-all-btn" onclick="clearSearch()">Back to Popular</button>
-                </div>
-                <div id="searchResults" class="results-grid"></div>
-            </div>
-
-            <!-- All Movies/TV Shows with Pagination -->
-            <div id="browseSection" style="display: none;">
-                <div class="section-header">
-                    <h2 class="section-title" id="browseTitle">Browse Content</h2>
-                    <button class="view-all-btn" onclick="backToHome()">Back to Home</button>
-                </div>
-                <div id="browseResults" class="results-grid"></div>
-                <div class="pagination" id="browsePagination" style="display: none;"></div>
-            </div>
         </div>
+
+        <!-- Search Results Section - MOVED OUTSIDE mainContent -->
+        <div id="searchResults" class="results-grid" style="display: none;"></div>
     </div>
 
     <!-- Episode Selection Modal -->
-    <div id="seasonModal" class="modal">
-        <div class="modal-content">
-            <h3>Select Episodes</h3>
-            <p>Choose which episodes you'd like to request:</p>
-            <div id="seasonContent" class="season-content">
-                <div class="loading-episodes">
+    <div id="seasonModal" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.8); z-index: 1000; padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);">
+        <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: linear-gradient(135deg, #1a1a3a 0%, #2d1b4e 100%); padding: 25px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, 0.2); max-width: 95vw; width: 90%; max-height: 80vh; overflow-y: auto; transition: all 0.3s ease; -webkit-overflow-scrolling: touch;">
+            <h3 style="margin-bottom: 20px; color: #ffffff; font-size: 1.3rem;">Select Episodes</h3>
+            <p style="color: #a0a0a0; margin-bottom: 20px;">Choose which episodes you'd like to request:</p>
+            <div id="seasonContent">
+                <div style="text-align: center; padding: 20px; color: #a0a0a0;">
                     <div class="spinner"></div>
                     <p>Loading episode information...</p>
                 </div>
             </div>
-            <div id="selectionSummary" class="summary-section" style="display: none;">
-                <div class="summary-title">Selection Summary</div>
-                <div class="summary-content" id="summaryText"></div>
+            <div id="selectionSummary" style="display: none; margin-top: 20px; padding: 15px; background: rgba(78, 205, 196, 0.1); border-radius: 8px; border: 1px solid rgba(78, 205, 196, 0.3);">
+                <div style="font-size: 1rem; font-weight: 600; color: #4ecdc4; margin-bottom: 10px;">Selection Summary</div>
+                <div id="summaryText" style="font-size: 0.9rem; line-height: 1.6; color: #ffffff;"></div>
             </div>
-            <div class="modal-buttons">
-                <button class="modal-btn secondary" onclick="closeSeasonModal()">Cancel</button>
-                <button class="modal-btn primary" onclick="confirmRequest()">Request Selected</button>
+            <div style="display: flex; gap: 10px; justify-content: flex-end; margin-top: 25px; flex-wrap: wrap;">
+                <button onclick="closeSeasonModal()" style="padding: 12px 20px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.9rem; -webkit-tap-highlight-color: transparent; touch-action: manipulation; flex: 1; min-width: 100px; background: rgba(255, 255, 255, 0.1); color: #ffffff;">Cancel</button>
+                <button onclick="confirmRequest()" style="padding: 12px 20px; border: none; border-radius: 10px; cursor: pointer; font-weight: 600; font-size: 0.9rem; -webkit-tap-highlight-color: transparent; touch-action: manipulation; flex: 1; min-width: 100px; background: linear-gradient(45deg, #4ecdc4, #45b7d1); color: #ffffff;">Request Selected</button>
             </div>
         </div>
     </div>
 
     <script>
+        // Configuration
         const TMDB_API_KEY = 'df968e81859a06cdd6e642da1684ecf9';
         const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
         const APP_ID = '1403586588985921587';
-        
         let currentMediaType = 'multi';
-        let selectedMedia = null;
-        let selectedEpisodes = {};
-        let tvShowDetails = null;
         let currentUser = null;
-        let userRequestCount = 5;
+        let userRequestCount = 0;
         let userRequests = new Map();
         let userTier = 'STANDARD';
         let weeklyLimit = 5;
+        let selectedMedia = null;
+        let selectedEpisodes = {};
+        let tvShowDetails = null;
         let currentBrowseType = '';
         let currentPage = 1;
         let totalPages = 10;
@@ -1464,23 +1009,18 @@
 
         // Enhanced touch event handling for better iOS compatibility
         function addTouchSupport() {
-            // Prevent default touch behaviors that might interfere
             document.addEventListener('touchstart', function(e) {
-                // Allow normal touch for input elements
                 if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') {
                     return;
                 }
             }, { passive: true });
 
-            // Improve scroll performance
             document.addEventListener('touchmove', function(e) {
                 // Allow normal scrolling
             }, { passive: true });
 
-            // Handle orientation changes
             window.addEventListener('orientationchange', function() {
                 setTimeout(function() {
-                    // Force layout recalculation
                     document.body.style.height = window.innerHeight + 'px';
                     setTimeout(function() {
                         document.body.style.height = '';
@@ -1495,7 +1035,7 @@
             if (savedUser) {
                 try {
                     currentUser = JSON.parse(savedUser);
-                    console.log('🔄 Restored user session:', currentUser.email);
+                    console.log('📄 Restored user session:', currentUser.email);
                     updateUIForSignedInUser();
                     return true;
                 } catch (error) {
@@ -1513,11 +1053,11 @@
 
         // Google Sign-In callback
         function handleCredentialResponse(response) {
-            console.log('Google Sign-In response received');
+            console.log('🔐 Google Sign-In response received');
             
             try {
                 const responsePayload = decodeJwtResponse(response.credential);
-                console.log('Decoded user info:', responsePayload);
+                console.log('✅ Decoded user info:', responsePayload);
                 
                 const tempUser = {
                     id: responsePayload.sub,
@@ -1530,11 +1070,11 @@
                 checkUserAuthorization(tempUser);
                 
             } catch (error) {
-                console.error('Error handling Google sign-in:', error);
-                alert('Google Sign-In failed. Please try again.');
+                console.error('❌ Error handling Google sign-in:', error);
+                alert('Google Sign-In failed. Please try the email sign-in option.');
             }
         }
-        
+
         function decodeJwtResponse(token) {
             const base64Url = token.split('.')[1];
             const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
@@ -1546,7 +1086,14 @@
 
         // Email-based sign in
         async function handleEmailSignIn() {
-            const email = document.getElementById('emailInput').value.trim().toLowerCase();
+            console.log('📧 Email sign-in started');
+            const emailInput = document.getElementById('emailInput');
+            if (!emailInput) {
+                alert('Email input not found');
+                return;
+            }
+            
+            const email = emailInput.value.trim().toLowerCase();
             
             if (!email) {
                 alert('Please enter an email address');
@@ -1558,41 +1105,70 @@
                 return;
             }
 
+            console.log('📧 Attempting sign-in for:', email);
+
             const tempUser = {
                 id: 'email_' + email.replace(/[.@]/g, '_'),
                 name: email.split('@')[0],
                 email: email,
-                picture: 'https://via.placeholder.com/50/4ecdc4/ffffff?text=' + email.charAt(0).toUpperCase(),
+                picture: createUserAvatar(email.charAt(0).toUpperCase()),
                 provider: 'email'
             };
 
+            console.log('👤 Created temp user:', tempUser);
             await checkUserAuthorization(tempUser);
+        }
+
+        // Create user avatar
+        function createUserAvatar(initial) {
+            return `data:image/svg+xml;base64,${btoa(`
+                <svg width="50" height="50" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="25" cy="25" r="25" fill="#4ecdc4"/>
+                    <text x="25" y="30" font-family="Arial" font-size="20" fill="white" text-anchor="middle" font-weight="bold">
+                        ${initial}
+                    </text>
+                </svg>
+            `)}`;
         }
 
         // Check user authorization
         async function checkUserAuthorization(tempUser) {
-            const signInElements = document.querySelectorAll('.test-signin-btn, .g_id_signin');
-            signInElements.forEach(el => {
-                if (el.classList.contains('test-signin-btn')) {
-                    el.innerHTML = 'Checking authorization...';
-                    el.disabled = true;
-                }
-            });
+            console.log('🔐 Checking authorization for:', tempUser.email);
+            
+            // Update button state
+            const emailSignInBtn = document.querySelector('[onclick="handleEmailSignIn()"]');
+            if (emailSignInBtn) {
+                emailSignInBtn.innerHTML = 'Checking authorization...';
+                emailSignInBtn.disabled = true;
+            }
 
             try {
+                console.log('🔗 Checking Firebase connection...');
+                if (!window.db) {
+                    console.error('❌ Firebase not initialized');
+                    showAuthorizationError('Firebase connection failed. Please refresh the page.');
+                    return;
+                }
+
                 const userDocId = tempUser.email.replace(/[.@]/g, '_');
+                console.log('📄 Looking for user document:', userDocId);
+                
                 const userDocRef = window.doc(window.db, `artifacts/${APP_ID}/public/data/users`, userDocId);
                 const userDoc = await window.getDoc(userDocRef);
                 
+                console.log('📄 User document exists:', userDoc.exists());
+                
                 if (!userDoc.exists()) {
-                    showAuthorizationError('Your email is not in the authorized users list.\n\nTo get access:\n1. Contact an admin to add your email to any Discord channel\n2. Wait for authorization to be processed\n3. Try signing in again');
+                    console.log('❌ User not found in database');
+                    showAuthorizationError('Your email is not in the authorized users list.\n\nTo get access:\n1. Contact an admin to add your email\n2. Wait for authorization to be processed\n3. Try signing in again');
                     return;
                 }
                 
                 const userData = userDoc.data();
-                console.log('Found user data:', userData);
+                console.log('✅ Found user data:', userData);
                 
                 if (!userData.tier && !userData.placeholder && !userData.createdBy) {
+                    console.log('❌ User data incomplete');
                     showAuthorizationError('Your email exists but is not properly authorized.\n\nPlease contact an administrator.');
                     return;
                 }
@@ -1604,53 +1180,77 @@
                     authorizedAt: new Date().toISOString()
                 };
 
-                console.log('✅ User authorized:', currentUser);
+                console.log('✅ User authorized successfully:', currentUser.email);
                 saveUserSession(currentUser);
                 updateUIForSignedInUser();
 
             } catch (error) {
-                console.error('Error checking authorization:', error);
-                showAuthorizationError('Error checking authorization. Please try again.');
+                console.error('❌ Authorization check failed:', error);
+                showAuthorizationError('Error checking authorization: ' + error.message + '\n\nPlease try again.');
             }
         }
 
         function showAuthorizationError(message) {
             alert('⛔ Access Denied\n\n' + message);
             
-            const emailSignInBtn = document.querySelector('.test-signin-btn');
+            // Reset button
+            const emailSignInBtn = document.querySelector('[onclick="handleEmailSignIn()"]');
             if (emailSignInBtn) {
                 emailSignInBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" style="margin-right: 8px;"><path fill="currentColor" d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C2,4.89 21.1,4 20,4Z"/></svg>Email Sign In';
                 emailSignInBtn.disabled = false;
             }
             
-            document.getElementById('emailInput').value = '';
+            // Clear email input
+            const emailInput = document.getElementById('emailInput');
+            if (emailInput) {
+                emailInput.value = '';
+            }
         }
-        
-        async function updateUIForSignedInUser() {
+
+        function updateUIForSignedInUser() {
             const userInfo = document.getElementById('userInfo');
             userInfo.className = 'user-info';
             
-            userInfo.innerHTML = 
-                '<div class="user-profile">' +
-                    '<img src="' + currentUser.picture + '" alt="' + currentUser.name + '" class="user-avatar">' +
-                    '<div class="user-details-signed-in">' +
-                        '<div class="user-name">' + currentUser.name + '</div>' +
-                        '<div class="user-email">' + currentUser.email + '</div>' +
-                    '</div>' +
-                '</div>' +
-                '<div class="user-controls">' +
-                    '<div class="requests-remaining">Loading...</div>' +
-                    '<button class="sign-out-btn" onclick="signOut()">Sign Out</button>' +
-                '</div>';
+            userInfo.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <img src="${currentUser.picture}" alt="${currentUser.name}" style="width: 50px; height: 50px; border-radius: 50%; border: 2px solid #4ecdc4;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 1.1rem; color: #ffffff;">
+                                ${currentUser.name} 
+                                <span style="background: linear-gradient(45deg, #ffd700, #ffed4e); color: #212529; padding: 4px 8px; border-radius: 8px; font-size: 0.7rem; margin-left: 8px;">Loading...</span>
+                            </div>
+                            <div style="color: #a0a0a0; font-size: 0.9rem;">${currentUser.email}</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="background: linear-gradient(45deg, #ff6b6b, #ff8e53); padding: 8px 16px; border-radius: 15px; font-weight: 600;">
+                            Loading...
+                        </div>
+                        <button onclick="signOut()" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 8px; cursor: pointer;">
+                            Sign Out
+                        </button>
+                    </div>
+                </div>
+            `;
             
-            document.querySelectorAll('.content-locked').forEach(el => el.classList.remove('content-locked'));
+            // Unlock content
+            document.querySelectorAll('.content-locked').forEach(el => {
+                el.classList.remove('content-locked');
+            });
             
-            await loadUserData();
+            // Load user data and setup listeners
+            loadUserData();
             loadUserRequests();
             listenForRequestUpdates();
+            
+            // Load content
             loadPopularContent();
+            
+            console.log('✅ UI updated for signed-in user');
         }
-        
+
+        // Load user data from Firebase
         async function loadUserData() {
             try {
                 if (!window.db || !currentUser) return;
@@ -1690,7 +1290,7 @@
                 updateUserInfoDisplay();
             }
         }
-        
+
         function setupUserDataListener() {
             if (!window.db || !currentUser) return;
             
@@ -1713,7 +1313,7 @@
                             showTierUpgradeNotification(oldTier, userTier);
                         }
                         
-                        console.log(`🔄 User data updated: ${userTier} tier, ${userRequestCount}/${weeklyLimit} requests`);
+                        console.log(`📄 User data updated: ${userTier} tier, ${userRequestCount}/${weeklyLimit} requests`);
                     }
                 }, (error) => {
                     console.error('Error listening to user data:', error);
@@ -1723,7 +1323,7 @@
                 console.error('Error setting up user data listener:', error);
             }
         }
-        
+
         function showTierUpgradeNotification(oldTier, newTier) {
             const tierConfig = USER_TIERS[newTier];
             const message = newTier === 'VIP' ? 
@@ -1758,31 +1358,36 @@
                 }, 300);
             }, 5000);
         }
-        
+
         function updateUserInfoDisplay() {
             const tierConfig = USER_TIERS[userTier];
             const remainingRequests = weeklyLimit === -1 ? '∞' : Math.max(0, weeklyLimit - userRequestCount);
             
             const userInfo = document.getElementById('userInfo');
-            userInfo.innerHTML = 
-                '<div class="user-profile">' +
-                    '<img src="' + currentUser.picture + '" alt="' + currentUser.name + '" class="user-avatar">' +
-                    '<div class="user-details-signed-in">' +
-                        '<div class="user-name">' + currentUser.name + 
-                            '<span class="user-tier ' + tierConfig.color + '">' + tierConfig.name + '</span>' +
-                            (userTier === 'VIP' ? '<span class="vip-badge">👑</span>' : '') +
-                        '</div>' +
-                        '<div class="user-email">' + currentUser.email + '</div>' +
-                    '</div>' +
-                '</div>' +
-                '<div class="user-controls">' +
-                    '<div class="requests-remaining">' +
-                        '<span id="requestsLeft">' + remainingRequests + '</span> requests remaining' +
-                    '</div>' +
-                    '<button class="sign-out-btn" onclick="signOut()">Sign Out</button>' +
-                '</div>';
+            userInfo.innerHTML = `
+                <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; width: 100%;">
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <img src="${currentUser.picture}" alt="${currentUser.name}" style="width: 50px; height: 50px; border-radius: 50%; border: 2px solid #4ecdc4;">
+                        <div>
+                            <div style="font-weight: 600; font-size: 1.1rem; color: #ffffff;">
+                                ${currentUser.name} 
+                                <span class="user-tier ${tierConfig.color}">${tierConfig.name}${userTier === 'VIP' ? ' 👑' : ''}</span>
+                            </div>
+                            <div style="color: #a0a0a0; font-size: 0.9rem;">${currentUser.email}</div>
+                        </div>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 15px;">
+                        <div style="background: linear-gradient(45deg, #ff6b6b, #ff8e53); padding: 8px 16px; border-radius: 15px; font-weight: 600;">
+                            ${remainingRequests} requests remaining
+                        </div>
+                        <button onclick="signOut()" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 8px; cursor: pointer;">
+                            Sign Out
+                        </button>
+                    </div>
+                </div>
+            `;
         }
-        
+
         function signOut() {
             localStorage.removeItem('plexUser');
             currentUser = null;
@@ -1799,23 +1404,148 @@
             localStorage.setItem('theme', isLight ? 'light' : 'dark');
         }
 
+        // WORKING SEARCH FUNCTION (from your working code)
+        async function searchMedia() {
+            console.log('🔍 searchMedia() function called');
+            
+            // Check if user is signed in
+            if (!currentUser) {
+                console.log('❌ User not signed in');
+                alert('Please sign in to search for content');
+                return;
+            }
+            
+            const searchInput = document.getElementById('searchInput');
+            if (!searchInput) {
+                console.error('❌ Search input element not found');
+                return;
+            }
+            
+            const query = searchInput.value.trim();
+            console.log('🔍 Search query:', query);
+            
+            if (!query) {
+                alert('Please enter a search term');
+                return;
+            }
+
+            console.log('🔍 Searching for:', query);
+            
+            const searchResults = document.getElementById('searchResults');
+            const mainContent = document.getElementById('mainContent');
+            
+            console.log('🔍 Elements found:', {
+                searchResults: !!searchResults,
+                mainContent: !!mainContent
+            });
+            
+            if (!searchResults || !mainContent) {
+                console.error('❌ Required elements not found');
+                return;
+            }
+            
+            // Show search results, hide main content
+            console.log('🔍 Hiding main content and showing search results...');
+            mainContent.style.display = 'none';
+            searchResults.style.display = 'grid';
+            searchResults.className = 'results-grid active';
+            
+            searchResults.innerHTML = '<div class="loading"><div class="spinner"></div><p>Searching...</p></div>';
+            
+            console.log('🔍 Search results should now be visible');
+
+            try {
+                let allResults = [];
+                
+                console.log('🔍 Current media type:', currentMediaType);
+                console.log('🔍 TMDB API Key present:', !!TMDB_API_KEY);
+                console.log('🔍 TMDB Base URL:', TMDB_BASE_URL);
+                
+                if (currentMediaType === 'multi') {
+                    console.log('🎭 Searching both movies and TV shows');
+                    
+                    const movieUrl = `${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
+                    const tvUrl = `${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
+                    
+                    console.log('🔍 Movie URL:', movieUrl);
+                    console.log('🔍 TV URL:', tvUrl);
+                    
+                    // Search both movies and TV
+                    const [movieResponse, tvResponse] = await Promise.all([
+                        fetch(movieUrl),
+                        fetch(tvUrl)
+                    ]);
+                    
+                    console.log('🔍 Movie response status:', movieResponse.status, movieResponse.ok);
+                    console.log('🔍 TV response status:', tvResponse.status, tvResponse.ok);
+                    
+                    const [movieData, tvData] = await Promise.all([movieResponse.json(), tvResponse.json()]);
+                    
+                    console.log('🔍 Movie data:', movieData);
+                    console.log('🔍 TV data:', tvData);
+                    
+                    const movies = movieData.results?.map(item => ({...item, media_type: 'movie'})) || [];
+                    const tvShows = tvData.results?.map(item => ({...item, media_type: 'tv'})) || [];
+                    allResults = [...movies, ...tvShows];
+                    
+                    console.log('🔍 Movies found:', movies.length);
+                    console.log('🔍 TV shows found:', tvShows.length);
+                } else {
+                    console.log(`🎯 Searching ${currentMediaType} only`);
+                    
+                    const searchUrl = `${TMDB_BASE_URL}/search/${currentMediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
+                    console.log('🔍 Search URL:', searchUrl);
+                    
+                    // Search specific type
+                    const response = await fetch(searchUrl);
+                    console.log('🔍 Response status:', response.status, response.ok);
+                    
+                    const data = await response.json();
+                    console.log('🔍 Response data:', data);
+                    
+                    allResults = data.results?.map(item => ({...item, media_type: currentMediaType})) || [];
+                }
+
+                console.log('🔍 Total search results:', allResults.length);
+                console.log('🔍 All results array:', allResults);
+
+                if (allResults.length > 0) {
+                    console.log('✅ Calling displayResults with', allResults.length, 'items');
+                    displayResults(allResults, searchResults);
+                    console.log('✅ displayResults completed');
+                } else {
+                    console.log('❌ No results found, showing no-results message');
+                    searchResults.innerHTML = '<div class="no-results"><h3>🔍 No Results Found</h3><p>Try a different search term.</p></div>';
+                }
+
+            } catch (error) {
+                console.error('❌ Search error:', error);
+                console.error('❌ Error stack:', error.stack);
+                searchResults.innerHTML = '<div class="no-results"><h3>⚠️ Search Error</h3><p>Please try again.</p></div>';
+            }
+        }
+
+        // Remove the old performSearch alias to avoid confusion
+        // ALIAS FOR BACKWARDS COMPATIBILITY - REMOVED
+
         // Enhanced Media type switching with proper filtering
         function changeMediaType(type) {
-            console.log('🎬 Changing media type to:', type);
+            console.log('🎬 changeMediaType() called with:', type);
             
             currentMediaType = type;
+            console.log('🎬 Updated currentMediaType to:', currentMediaType);
             
             // Update button styles
             document.querySelectorAll('.media-type-btn').forEach(btn => {
                 btn.classList.remove('active');
                 if (btn.dataset.type === type) {
                     btn.classList.add('active');
+                    console.log('🎬 Activated button for type:', type);
                 }
             });
             
-            // Hide other sections when switching types
-            document.getElementById('browseSection').style.display = 'none';
-            document.getElementById('searchResultsSection').style.display = 'none';
+            // Hide search results and show main content
+            document.getElementById('searchResults').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
             
             // Filter the displayed content based on selected type
@@ -1826,14 +1556,14 @@
         function filterContentSections(type) {
             console.log('🔍 Filtering sections for:', type);
             
-            // Get the section containers by their new IDs
+            // Get the section containers by their IDs
             const moviesSection = document.getElementById('moviesSection');
             const tvSection = document.getElementById('tvSection');
             
             // Show/hide entire sections based on type
             switch(type) {
                 case 'movie':
-                    console.log('📽️ Showing only movies');
+                    console.log('🎥️ Showing only movies');
                     if (moviesSection) moviesSection.style.display = 'block';
                     if (tvSection) tvSection.style.display = 'none';
                     break;
@@ -1890,7 +1620,7 @@
                 
             } catch (error) {
                 console.error('Error loading popular movies:', error);
-                moviesDiv.innerHTML = '<div class="no-results"><h3>⚠ Error Loading Movies</h3><p>Please try again later.</p></div>';
+                moviesDiv.innerHTML = '<div class="no-results"><h3>⚠️ Error Loading Movies</h3><p>Please try again later.</p></div>';
             }
         }
 
@@ -1921,7 +1651,7 @@
                 
             } catch (error) {
                 console.error('Error loading popular TV shows:', error);
-                tvDiv.innerHTML = '<div class="no-results"><h3>⚠ Error Loading TV Shows</h3><p>Please try again later.</p></div>';
+                tvDiv.innerHTML = '<div class="no-results"><h3>⚠️ Error Loading TV Shows</h3><p>Please try again later.</p></div>';
             }
         }
 
@@ -2031,7 +1761,7 @@
                 
             } catch (error) {
                 console.error('Error loading browse content:', error);
-                browseResults.innerHTML = '<div class="no-results"><h3>⚠ Error Loading Content</h3><p>Please try again later.</p></div>';
+                browseResults.innerHTML = '<div class="no-results"><h3>⚠️ Error Loading Content</h3><p>Please try again later.</p></div>';
             }
         }
 
@@ -2085,70 +1815,102 @@
             window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function backToHome() {
-            document.getElementById('browseSection').style.display = 'none';
-            document.getElementById('searchResultsSection').style.display = 'none';
-            document.getElementById('mainContent').style.display = 'block';
+        // Browse all content with pagination
+        async function showAllMovies() {
+            currentBrowseType = 'movie';
+            currentPage = 1;
+            await loadBrowseContent();
         }
 
-        // Search functionality
-        async function searchMedia() {
-            const query = document.getElementById('searchInput').value.trim();
-            if (!query) return;
-            
-            const searchResults = document.getElementById('searchResults');
-            const searchSection = document.getElementById('searchResultsSection');
-            const searchTitle = document.getElementById('searchResultsTitle');
-            
-            searchTitle.textContent = `🔍 Search Results for "${query}"`;
-            searchResults.innerHTML = '<div class="loading"><div class="spinner"></div><p>Searching...</p></div>';
-            
-            document.getElementById('mainContent').style.display = 'none';
-            document.getElementById('browseSection').style.display = 'none';
-            searchSection.style.display = 'block';
+        async function showAllTVShows() {
+            currentBrowseType = 'tv';
+            currentPage = 1;
+            await loadBrowseContent();
+        }
+
+        async function loadBrowseContent() {
+            // For now, just show more popular content
+            // This can be enhanced later with pagination
+            console.log('Loading browse content for:', currentBrowseType);
             
             try {
-                const response = await fetch(`${TMDB_BASE_URL}/search/${currentMediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`);
-                const data = await response.json();
-                
-                if (data.results && data.results.length > 0) {
-                    const results = data.results.map(item => ({
-                        ...item, 
-                        media_type: item.media_type || currentMediaType
-                    }));
-                    displayResults(results, searchResults);
+                let response;
+                if (currentBrowseType === 'movie') {
+                    response = await fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&page=1`);
                 } else {
-                    searchResults.innerHTML = '<div class="no-results"><h3>🔍 No Results Found</h3><p>Try a different search term.</p></div>';
+                    response = await fetch(`${TMDB_BASE_URL}/tv/popular?api_key=${TMDB_API_KEY}&page=1`);
                 }
                 
+                const data = await response.json();
+                const content = data.results.map(item => ({...item, media_type: currentBrowseType}));
+                
+                // Show in search results area
+                const searchResults = document.getElementById('searchResults');
+                const mainContent = document.getElementById('mainContent');
+                
+                mainContent.style.display = 'none';
+                searchResults.style.display = 'grid';
+                
+                displayResults(content, searchResults);
+                
             } catch (error) {
-                console.error('Error searching:', error);
-                searchResults.innerHTML = '<div class="no-results"><h3>⚠ Search Error</h3><p>Please try again.</p></div>';
+                console.error('Error loading browse content:', error);
             }
         }
 
+        function backToHome() {
+            document.getElementById('searchResults').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+        }
+
         function clearSearch() {
-            document.getElementById('searchInput').value = '';
-            document.getElementById('searchResultsSection').style.display = 'none';
-            document.getElementById('browseSection').style.display = 'none';
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.value = '';
+            }
+            document.getElementById('searchResults').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
         }
 
         // Display results
         function displayResults(results, container) {
+            console.log('📋 displayResults called with:', {
+                resultsLength: results.length,
+                containerElement: !!container,
+                containerId: container?.id
+            });
+            
+            if (!container) {
+                console.error('❌ Container not found for displaying results');
+                return;
+            }
+            
             if (results.length === 0) {
+                console.log('📋 No results to display');
                 container.innerHTML = '<div class="no-results"><h3>🔍 No Results Found</h3><p>Try a different search term.</p></div>';
                 return;
             }
             
+            console.log('📋 Clearing container and creating cards...');
             container.innerHTML = '';
             
-            results.forEach(item => {
-                const card = createMediaCard(item);
-                container.appendChild(card);
+            // Remove the test element - no longer needed
+            
+            results.forEach((item, index) => {
+                console.log(`📋 Creating card ${index + 1}/${results.length} for:`, item.title || item.name);
+                try {
+                    const card = createMediaCard(item);
+                    container.appendChild(card);
+                    console.log(`✅ Card ${index + 1} added successfully`);
+                } catch (error) {
+                    console.error(`❌ Error creating card ${index + 1}:`, error);
+                }
             });
+            
+            console.log('✅ displayResults completed - all cards should be visible now');
         }
-        
+
+        // Create media card with bot integration
         function createMediaCard(item) {
             const card = document.createElement('div');
             card.className = 'media-card';
@@ -2168,7 +1930,7 @@
             if (mediaType === 'tv' && userRequest && userRequest.selectedEpisodes) {
                 const episodeInfo = formatRequestedEpisodes(userRequest.selectedEpisodes, userRequest.status);
                 if (episodeInfo) {
-                    episodeStatusHTML = `<div class="episode-status">${episodeInfo}</div>`;
+                    episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5;">${episodeInfo}</div>`;
                 }
                 buttonText = 'Request More Episodes';
             } else if (mediaType === 'movie' && userRequest) {
@@ -2211,243 +1973,80 @@
                 buttonText = 'Weekly Limit Reached';
             }
             
-            let posterPath = item.poster_path ? 
-                'https://image.tmdb.org/t/p/w500' + item.poster_path : 
-                'https://via.placeholder.com/300x450/1a1a3a/ffffff?text=' + encodeURIComponent(title);
+            // Create safe title for SVG (remove special characters and emojis)
+            const safeTitle = title.replace(/[^\x00-\x7F]/g, "").substring(0, 30) || "Media";
             
-            card.innerHTML = 
-                '<img src="' + posterPath + '" alt="' + title + '" class="media-poster">' +
-                '<div class="media-info">' +
-                    '<h3 class="media-title">' + title + '</h3>' +
-                    '<div class="media-meta">' +
-                        '<span class="media-year">' + (year ? new Date(year).getFullYear() : 'Unknown') + '</span>' +
-                        '<span class="media-type-badge">' + (mediaType === 'tv' ? 'TV' : 'Movie') + '</span>' +
-                    '</div>' +
-                    '<p class="media-overview">' + (item.overview || 'No description available.') + '</p>' +
-                    episodeStatusHTML +
-                    '<button class="' + buttonClass + '" id="btn-' + mediaId + '" ' + (buttonDisabled ? 'disabled' : '') + ' onclick="requestMedia(' + JSON.stringify(item).replace(/"/g, '&quot;') + ')">' +
-                        buttonText +
-                    '</button>' +
-                '</div>';
+            let posterPath;
+            if (item.poster_path) {
+                posterPath = 'https://image.tmdb.org/t/p/w500' + item.poster_path;
+            } else {
+                // Use a simple fallback instead of SVG to avoid encoding issues
+                posterPath = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
+                    <svg width="300" height="450" xmlns="http://www.w3.org/2000/svg">
+                        <rect width="300" height="450" fill="#1a1a3a"/>
+                        <text x="150" y="200" font-family="Arial" font-size="16" fill="white" text-anchor="middle">
+                            ${safeTitle}
+                        </text>
+                        <circle cx="150" cy="300" r="30" fill="#4ecdc4" opacity="0.3"/>
+                        <text x="150" y="305" font-family="Arial" font-size="24" fill="#4ecdc4" text-anchor="middle">🎬</text>
+                    </svg>
+                `);
+            }
+            
+            // Create the card HTML without inline onclick to avoid quote issues
+            card.innerHTML = `
+                <img src="${posterPath}" alt="${title}" class="media-poster">
+                <div class="media-info">
+                    <h3 class="media-title">${title}</h3>
+                    <div class="media-meta">
+                        <span class="media-year">${year ? new Date(year).getFullYear() : 'Unknown'}</span>
+                        <span class="media-type-badge">${mediaType === 'tv' ? 'TV' : 'Movie'}</span>
+                    </div>
+                    <p class="media-overview">${item.overview || 'No description available.'}</p>
+                    ${episodeStatusHTML}
+                    <button class="${buttonClass}" id="btn-${mediaId}" ${buttonDisabled ? 'disabled' : ''}>
+                        ${buttonText}
+                    </button>
+                </div>
+            `;
+            
+            // Add event listener to the button instead of inline onclick
+            const button = card.querySelector(`#btn-${mediaId}`);
+            if (button && !buttonDisabled) {
+                button.addEventListener('click', function() {
+                    requestMedia(item);
+                });
+            }
             
             return card;
         }
 
-        // Episode selection functions
-        async function showSeasonSelector(tvId) {
-            try {
-                document.getElementById('seasonContent').innerHTML = 
-                    '<div class="loading-episodes">' +
-                        '<div class="spinner"></div>' +
-                        '<p>Loading episode information...</p>' +
-                    '</div>';
-                
-                document.getElementById('seasonModal').style.display = 'block';
-                document.getElementById('selectionSummary').style.display = 'none';
-                
+        // Request media - this submits to Firebase for your bot to process
+        async function requestMedia(media) {
+            if (!currentUser) {
+                alert('Please sign in to make requests.');
+                return;
+            }
+            
+            if (userTier !== 'VIP' && userRequestCount >= weeklyLimit) {
+                alert(`You've reached your weekly limit of ${weeklyLimit} requests. Limit resets on Sunday.`);
+                return;
+            }
+            
+            selectedMedia = media;
+            const mediaType = media.media_type || currentMediaType;
+            
+            if (mediaType === 'tv') {
+                await showSeasonSelector(media.id);
+            } else {
                 selectedEpisodes = {};
-                
-                const response = await fetch(TMDB_BASE_URL + '/tv/' + tvId + '?api_key=' + TMDB_API_KEY);
-                tvShowDetails = await response.json();
-                
-                let contentHTML = '';
-                const regularSeasons = tvShowDetails.seasons.filter(season => season.season_number > 0);
-                
-                for (const season of regularSeasons) {
-                    const seasonResponse = await fetch(
-                        TMDB_BASE_URL + '/tv/' + tvId + '/season/' + season.season_number + '?api_key=' + TMDB_API_KEY
-                    );
-                    const seasonDetails = await seasonResponse.json();
-                    
-                    contentHTML += `
-                        <div class="season-section" data-season="${season.season_number}">
-                            <div class="season-header">
-                                <div class="season-title">
-                                    Season ${season.season_number}
-                                    <span class="episode-count">${seasonDetails.episodes.length} episodes</span>
-                                </div>
-                                <button class="select-all-btn" onclick="toggleAllEpisodes(${season.season_number})">
-                                    Select All
-                                </button>
-                            </div>
-                            <div class="episodes-grid" id="episodes-${season.season_number}">
-                    `;
-                    
-                    for (const episode of seasonDetails.episodes) {
-                        const episodeTitle = episode.name || `Episode ${episode.episode_number}`;
-                        contentHTML += `
-                            <div class="episode-btn" 
-                                 onclick="toggleEpisode(${season.season_number}, ${episode.episode_number})"
-                                 data-season="${season.season_number}"
-                                 data-episode="${episode.episode_number}">
-                                <div>E${String(episode.episode_number).padStart(2, '0')}</div>
-                                <div class="episode-title" title="${episodeTitle}">${episodeTitle}</div>
-                            </div>
-                        `;
-                    }
-                    
-                    contentHTML += `</div></div>`;
-                }
-                
-                document.getElementById('seasonContent').innerHTML = contentHTML;
-                
-            } catch (error) {
-                console.error('Error loading season information:', error);
-                document.getElementById('seasonContent').innerHTML = 
-                    '<div class="no-results">' +
-                        '<h3>⚠ Error Loading Episodes</h3>' +
-                        '<p>Unable to load episode information. Please try again.</p>' +
-                    '</div>';
-            }
-        }
-        
-        function toggleEpisode(seasonNumber, episodeNumber) {
-            if (!selectedEpisodes[seasonNumber]) {
-                selectedEpisodes[seasonNumber] = [];
-            }
-            
-            const index = selectedEpisodes[seasonNumber].indexOf(episodeNumber);
-            const episodeBtn = document.querySelector(
-                `.episode-btn[data-season="${seasonNumber}"][data-episode="${episodeNumber}"]`
-            );
-            
-            if (index > -1) {
-                selectedEpisodes[seasonNumber].splice(index, 1);
-                episodeBtn.classList.remove('selected');
-                
-                if (selectedEpisodes[seasonNumber].length === 0) {
-                    delete selectedEpisodes[seasonNumber];
-                }
-            } else {
-                selectedEpisodes[seasonNumber].push(episodeNumber);
-                episodeBtn.classList.add('selected');
-            }
-            
-            updateSelectAllButton(seasonNumber);
-            updateSelectionSummary();
-        }
-        
-        function toggleAllEpisodes(seasonNumber) {
-            const episodeBtns = document.querySelectorAll(
-                `.episode-btn[data-season="${seasonNumber}"]`
-            );
-            const selectAllBtn = document.querySelector(
-                `.season-section[data-season="${seasonNumber}"] .select-all-btn`
-            );
-            
-            const allSelected = selectedEpisodes[seasonNumber] && 
-                               selectedEpisodes[seasonNumber].length === episodeBtns.length;
-            
-            if (allSelected) {
-                delete selectedEpisodes[seasonNumber];
-                episodeBtns.forEach(btn => btn.classList.remove('selected'));
-                selectAllBtn.classList.remove('selected');
-                selectAllBtn.textContent = 'Select All';
-            } else {
-                selectedEpisodes[seasonNumber] = [];
-                episodeBtns.forEach(btn => {
-                    const episodeNum = parseInt(btn.dataset.episode);
-                    selectedEpisodes[seasonNumber].push(episodeNum);
-                    btn.classList.add('selected');
-                });
-                selectAllBtn.classList.add('selected');
-                selectAllBtn.textContent = 'Deselect All';
-            }
-            
-            updateSelectionSummary();
-        }
-        
-        function updateSelectAllButton(seasonNumber) {
-            const episodeBtns = document.querySelectorAll(
-                `.episode-btn[data-season="${seasonNumber}"]`
-            );
-            const selectAllBtn = document.querySelector(
-                `.season-section[data-season="${seasonNumber}"] .select-all-btn`
-            );
-            
-            if (!selectAllBtn) return;
-            
-            const allSelected = selectedEpisodes[seasonNumber] && 
-                               selectedEpisodes[seasonNumber].length === episodeBtns.length;
-            
-            if (allSelected) {
-                selectAllBtn.classList.add('selected');
-                selectAllBtn.textContent = 'Deselect All';
-            } else {
-                selectAllBtn.classList.remove('selected');
-                selectAllBtn.textContent = 'Select All';
-            }
-        }
-        
-        function updateSelectionSummary() {
-            const summarySection = document.getElementById('selectionSummary');
-            const summaryText = document.getElementById('summaryText');
-            
-            if (Object.keys(selectedEpisodes).length === 0) {
-                summarySection.style.display = 'none';
-                return;
-            }
-            
-            let summary = '';
-            const seasons = Object.keys(selectedEpisodes).sort((a, b) => parseInt(a) - parseInt(b));
-            
-            for (const season of seasons) {
-                const episodes = selectedEpisodes[season].sort((a, b) => a - b);
-                const seasonDetails = tvShowDetails.seasons.find(s => s.season_number === parseInt(season));
-                const totalEpisodes = seasonDetails ? seasonDetails.episode_count : episodes.length;
-                
-                if (episodes.length === totalEpisodes) {
-                    summary += `<div>• <strong>Season ${season}</strong>: All episodes (${episodes.length})</div>`;
-                } else {
-                    const ranges = [];
-                    let start = episodes[0];
-                    let end = episodes[0];
-                    
-                    for (let i = 1; i < episodes.length; i++) {
-                        if (episodes[i] === end + 1) {
-                            end = episodes[i];
-                        } else {
-                            ranges.push(start === end ? `E${start}` : `E${start}-E${end}`);
-                            start = episodes[i];
-                            end = episodes[i];
-                        }
-                    }
-                    ranges.push(start === end ? `E${start}` : `E${start}-E${end}`);
-                    
-                    summary += `<div>• <strong>Season ${season}</strong>: ${ranges.join(', ')} (${episodes.length} episodes)</div>`;
-                }
-            }
-            
-            summaryText.innerHTML = summary;
-            summarySection.style.display = 'block';
-        }
-        
-        function closeSeasonModal() {
-            document.getElementById('seasonModal').style.display = 'none';
-            selectedEpisodes = {};
-            selectedMedia = null;
-            tvShowDetails = null;
-        }
-        
-        async function confirmRequest() {
-            if (Object.keys(selectedEpisodes).length === 0) {
-                alert('Please select at least one episode.');
-                return;
-            }
-            
-            console.log('✅ Confirming TV show request with episodes:', selectedEpisodes);
-            document.getElementById('seasonModal').style.display = 'none';
-            
-            try {
                 await submitRequest();
-            } catch (error) {
-                console.error('⚠ Error in confirmRequest:', error);
-                alert('Error submitting request: ' + error.message);
             }
         }
 
+        // Submit request to Firebase (your bot will pick this up)
         async function submitRequest() {
-            console.log('📤 submitRequest called');
+            console.log('📤 Submitting request to Firebase for bot processing');
             if (!currentUser || !selectedMedia) return;
             
             const mediaType = selectedMedia.media_type || currentMediaType;
@@ -2474,8 +2073,9 @@
             try {
                 const requestsRef = window.collection(window.db, `artifacts/${APP_ID}/public/data/requests`);
                 const docRef = await window.addDoc(requestsRef, requestData);
-                console.log('✅ Request submitted successfully with ID:', docRef.id);
+                console.log('✅ Request submitted to Firebase for bot processing, ID:', docRef.id);
                 
+                // Update user request count if not VIP
                 if (userTier !== 'VIP') {
                     userRequestCount++;
                     const userDocRef = window.doc(window.db, `artifacts/${APP_ID}/public/data/users`, currentUser.id);
@@ -2483,113 +2083,35 @@
                 }
                 
                 let summaryText = '';
-                for (const [season, episodes] of Object.entries(episodeData)) {
-                    const seasonNum = parseInt(season.replace('S', ''));
-                    const seasonDetails = tvShowDetails?.seasons?.find(s => s.season_number === seasonNum);
-                    const totalEpisodes = seasonDetails ? seasonDetails.episode_count : episodes.length;
-                    
-                    if (episodes.length === totalEpisodes) {
-                        summaryText += `\n  • ${season}: All episodes`;
-                    } else {
-                        summaryText += `\n  • ${season}: Episodes ${episodes.join(', ')}`;
+                if (mediaType === 'tv' && Object.keys(episodeData).length > 0) {
+                    for (const [season, episodes] of Object.entries(episodeData)) {
+                        const seasonNum = parseInt(season.replace('S', ''));
+                        const seasonDetails = tvShowDetails?.seasons?.find(s => s.season_number === seasonNum);
+                        const totalEpisodes = seasonDetails ? seasonDetails.episode_count : episodes.length;
+                        
+                        if (episodes.length === totalEpisodes) {
+                            summaryText += `\n  • ${season}: All episodes`;
+                        } else {
+                            summaryText += `\n  • ${season}: Episodes ${episodes.join(', ')}`;
+                        }
                     }
                 }
                 
                 updateUserInfoDisplay();
-                alert(`Request submitted successfully for ${requestData.title}!${summaryText}\n\nYou'll see status updates here.`);
+                alert(`✅ Request submitted successfully for ${requestData.title}!${summaryText}\n\nYour bot will process this request and update the status automatically.`);
                 
                 selectedMedia = null;
                 selectedEpisodes = {};
                 tvShowDetails = null;
                 
             } catch (error) {
-                console.error('⚠ Request submission error:', error);
+                console.error('❌ Request submission error:', error);
                 alert('Error submitting request: ' + error.message);
                 throw error;
             }
         }
 
-        async function requestMedia(media) {
-            if (!currentUser) {
-                alert('Please sign in to make requests.');
-                return;
-            }
-            
-            if (userTier !== 'VIP' && userRequestCount >= weeklyLimit) {
-                alert(`You've reached your weekly limit of ${weeklyLimit} requests. Limit resets on Sunday.`);
-                return;
-            }
-            
-            selectedMedia = media;
-            const mediaType = media.media_type || currentMediaType;
-            
-            if (mediaType === 'tv') {
-                await showSeasonSelector(media.id);
-            } else {
-                selectedEpisodes = {};
-                await submitRequest();
-            }
-        }
-
-        // Helper functions
-        function formatRequestedEpisodes(episodeData, status) {
-            if (!episodeData || Object.keys(episodeData).length === 0) {
-                return null;
-            }
-            
-            let statusClass = 'episode-status-item';
-            if (status === 'pending') {
-                statusClass += ' episode-status-pending';
-            } else if (status === 'downloading') {
-                statusClass += ' episode-status-downloading';
-            } else if (status === 'error' || status === 'not_available') {
-                statusClass += ' episode-status-error';
-            }
-            
-            const formattedItems = [];
-            
-            for (const [season, episodes] of Object.entries(episodeData)) {
-                if (!episodes || episodes.length === 0) continue;
-                
-                const seasonNum = season.replace('S', '');
-                const sortedEpisodes = episodes.sort((a, b) => a - b);
-                
-                const ranges = [];
-                let start = sortedEpisodes[0];
-                let end = sortedEpisodes[0];
-                
-                for (let i = 1; i < sortedEpisodes.length; i++) {
-                    if (sortedEpisodes[i] === end + 1) {
-                        end = sortedEpisodes[i];
-                    } else {
-                        if (start === end) {
-                            ranges.push(`E${String(start).padStart(2, '0')}`);
-                        } else {
-                            ranges.push(`E${String(start).padStart(2, '0')}-E${String(end).padStart(2, '0')}`);
-                        }
-                        start = sortedEpisodes[i];
-                        end = sortedEpisodes[i];
-                    }
-                }
-                
-                if (start === end) {
-                    ranges.push(`E${String(start).padStart(2, '0')}`);
-                } else {
-                    ranges.push(`E${String(start).padStart(2, '0')}-E${String(end).padStart(2, '0')}`);
-                }
-                
-                const seasonText = `${season}: ${ranges.join(', ')}`;
-                formattedItems.push(`<span class="${statusClass}">${seasonText}</span>`);
-            }
-            
-            const statusIcon = status === 'approved' ? '✅' : 
-                             status === 'pending' ? '⏳' : 
-                             status === 'downloading' ? '⬇️' : 
-                             status === 'error' ? '⚠' : '';
-            
-            return `<strong>Requested Episodes ${statusIcon}:</strong> ${formattedItems.join(' ')}`;
-        }
-
+        // Load user requests from Firebase
         async function loadUserRequests() {
             if (!window.db || !currentUser) return;
             
@@ -2627,12 +2149,13 @@
                     }
                 });
                 
-                console.log('Loaded user requests:', userRequests);
+                console.log('📋 Loaded user requests:', userRequests.size);
             } catch (error) {
                 console.error('Error loading user requests:', error);
             }
         }
 
+        // Listen for real-time request updates from your bot
         async function listenForRequestUpdates() {
             if (!window.db || !currentUser) return;
             
@@ -2647,6 +2170,12 @@
                             const mediaId = data.mediaType + '-' + data.tmdbId;
                             
                             if (change.type === 'modified' || change.type === 'added') {
+                                console.log('📱 Request update from bot:', {
+                                    mediaId: mediaId,
+                                    status: data.status,
+                                    changeType: change.type
+                                });
+                                
                                 if (data.mediaType === 'tv') {
                                     const existingRequest = userRequests.get(mediaId);
                                     if (existingRequest && existingRequest.selectedEpisodes) {
@@ -2691,6 +2220,7 @@
                 if (!statusDiv) {
                     statusDiv = document.createElement('div');
                     statusDiv.className = 'episode-status';
+                    statusDiv.style.cssText = 'margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5;';
                     button.parentNode.insertBefore(statusDiv, button);
                 }
                 
@@ -2739,31 +2269,275 @@
             }
         }
 
-        // Debug function to test media type filtering
-        function testMediaFiltering() {
-            console.log('🧪 Testing media type filtering...');
-            console.log('Movies section:', document.getElementById('moviesSection'));
-            console.log('TV section:', document.getElementById('tvSection'));
+        function formatRequestedEpisodes(episodeData, status) {
+            if (!episodeData || Object.keys(episodeData).length === 0) {
+                return null;
+            }
             
-            // Test movie filter
-            console.log('Testing Movies only...');
-            changeMediaType('movie');
+            const baseStyle = 'display: inline-block; margin: 2px 4px; padding: 2px 6px; color: white; border-radius: 4px; font-size: 0.75rem; font-weight: 500;';
             
-            setTimeout(() => {
-                console.log('Testing TV only...');
-                changeMediaType('tv');
-            }, 2000);
+            let bgColor = 'background: linear-gradient(45deg, #28a745, #218838);'; // approved
+            if (status === 'pending') {
+                bgColor = 'background: linear-gradient(45deg, #6c757d, #5a6268);';
+            } else if (status === 'downloading') {
+                bgColor = 'background: linear-gradient(45deg, #0099ff, #007acc);';
+            } else if (status === 'error' || status === 'not_available') {
+                bgColor = 'background: linear-gradient(45deg, #dc3545, #c82333);';
+            }
             
-            setTimeout(() => {
-                console.log('Testing All content...');
-                changeMediaType('multi');
-            }, 4000);
+            const formattedItems = [];
             
-            console.log('✅ Watch the sections show/hide above');
+            for (const [season, episodes] of Object.entries(episodeData)) {
+                if (!episodes || episodes.length === 0) continue;
+                
+                const seasonNum = season.replace('S', '');
+                const sortedEpisodes = episodes.sort((a, b) => a - b);
+                
+                const ranges = [];
+                let start = sortedEpisodes[0];
+                let end = sortedEpisodes[0];
+                
+                for (let i = 1; i < sortedEpisodes.length; i++) {
+                    if (sortedEpisodes[i] === end + 1) {
+                        end = sortedEpisodes[i];
+                    } else {
+                        if (start === end) {
+                            ranges.push(`E${String(start).padStart(2, '0')}`);
+                        } else {
+                            ranges.push(`E${String(start).padStart(2, '0')}-E${String(end).padStart(2, '0')}`);
+                        }
+                        start = sortedEpisodes[i];
+                        end = sortedEpisodes[i];
+                    }
+                }
+                
+                if (start === end) {
+                    ranges.push(`E${String(start).padStart(2, '0')}`);
+                } else {
+                    ranges.push(`E${String(start).padStart(2, '0')}-E${String(end).padStart(2, '0')}`);
+                }
+                
+                const seasonText = `${season}: ${ranges.join(', ')}`;
+                formattedItems.push(`<span style="${baseStyle} ${bgColor}">${seasonText}</span>`);
+            }
+            
+            const statusIcon = status === 'approved' ? '✅' : 
+                             status === 'pending' ? '⏳' : 
+                             status === 'downloading' ? '⬇️' : 
+                             status === 'error' ? '⚠️' : '';
+            
+            return `<strong>Requested Episodes ${statusIcon}:</strong> ${formattedItems.join(' ')}`;
+        }
+
+        // TV Show Episode Selection Functions
+        async function showSeasonSelector(tvId) {
+            try {
+                document.getElementById('seasonContent').innerHTML = 
+                    '<div style="text-align: center; padding: 20px; color: #a0a0a0;"><div class="spinner"></div><p>Loading episode information...</p></div>';
+                
+                document.getElementById('seasonModal').style.display = 'block';
+                document.getElementById('selectionSummary').style.display = 'none';
+                
+                selectedEpisodes = {};
+                
+                const response = await fetch(TMDB_BASE_URL + '/tv/' + tvId + '?api_key=' + TMDB_API_KEY);
+                tvShowDetails = await response.json();
+                
+                let contentHTML = '';
+                const regularSeasons = tvShowDetails.seasons.filter(season => season.season_number > 0);
+                
+                for (const season of regularSeasons) {
+                    const seasonResponse = await fetch(
+                        TMDB_BASE_URL + '/tv/' + tvId + '/season/' + season.season_number + '?api_key=' + TMDB_API_KEY
+                    );
+                    const seasonDetails = await seasonResponse.json();
+                    
+                    contentHTML += `
+                        <div style="margin-bottom: 20px; padding: 15px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1);" data-season="${season.season_number}">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px solid rgba(255, 255, 255, 0.2); flex-wrap: wrap; gap: 10px;">
+                                <div style="font-size: 1.1rem; font-weight: 600; color: #4ecdc4;">
+                                    Season ${season.season_number}
+                                    <span style="display: inline-block; padding: 2px 6px; background: rgba(255, 255, 255, 0.2); border-radius: 4px; font-size: 0.7rem; margin-left: 8px;">${seasonDetails.episodes.length} episodes</span>
+                                </div>
+                                <button onclick="toggleAllEpisodes(${season.season_number})" style="padding: 6px 12px; background: linear-gradient(45deg, #ff6b6b, #ff8e53); border: none; border-radius: 6px; color: #ffffff; font-size: 0.8rem; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;">
+                                    Select All
+                                </button>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px;" id="episodes-${season.season_number}">
+                    `;
+                    
+                    for (const episode of seasonDetails.episodes) {
+                        const episodeTitle = episode.name || `Episode ${episode.episode_number}`;
+                        contentHTML += `
+                            <div onclick="toggleEpisode(${season.season_number}, ${episode.episode_number})" data-season="${season.season_number}" data-episode="${episode.episode_number}" style="padding: 8px 6px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; color: #ffffff; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease; text-align: center; position: relative; -webkit-tap-highlight-color: transparent; touch-action: manipulation;">
+                                <div>E${String(episode.episode_number).padStart(2, '0')}</div>
+                                <div style="font-size: 0.7rem; color: #a0a0a0; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${episodeTitle}">${episodeTitle}</div>
+                            </div>
+                        `;
+                    }
+                    
+                    contentHTML += `</div></div>`;
+                }
+                
+                document.getElementById('seasonContent').innerHTML = contentHTML;
+                
+            } catch (error) {
+                console.error('Error loading season information:', error);
+                document.getElementById('seasonContent').innerHTML = 
+                    '<div style="text-align: center; padding: 40px; color: #a0a0a0;"><h3>⚠️ Error Loading Episodes</h3><p>Unable to load episode information. Please try again.</p></div>';
+            }
+        }
+
+        function toggleEpisode(seasonNumber, episodeNumber) {
+            if (!selectedEpisodes[seasonNumber]) {
+                selectedEpisodes[seasonNumber] = [];
+            }
+            
+            const index = selectedEpisodes[seasonNumber].indexOf(episodeNumber);
+            const episodeBtn = document.querySelector(
+                `[data-season="${seasonNumber}"][data-episode="${episodeNumber}"]`
+            );
+            
+            if (index > -1) {
+                selectedEpisodes[seasonNumber].splice(index, 1);
+                episodeBtn.style.background = 'rgba(255, 255, 255, 0.08)';
+                episodeBtn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                episodeBtn.style.fontWeight = 'normal';
+                
+                if (selectedEpisodes[seasonNumber].length === 0) {
+                    delete selectedEpisodes[seasonNumber];
+                }
+            } else {
+                selectedEpisodes[seasonNumber].push(episodeNumber);
+                episodeBtn.style.background = 'linear-gradient(45deg, #4ecdc4, #45b7d1)';
+                episodeBtn.style.borderColor = '#4ecdc4';
+                episodeBtn.style.fontWeight = '600';
+            }
+            
+            updateSelectAllButton(seasonNumber);
+            updateSelectionSummary();
+        }
+
+        function toggleAllEpisodes(seasonNumber) {
+            const episodeBtns = document.querySelectorAll(`[data-season="${seasonNumber}"][data-episode]`);
+            const selectAllBtn = document.querySelector(`[data-season="${seasonNumber}"] button`);
+            
+            const allSelected = selectedEpisodes[seasonNumber] && 
+                               selectedEpisodes[seasonNumber].length === episodeBtns.length;
+            
+            if (allSelected) {
+                delete selectedEpisodes[seasonNumber];
+                episodeBtns.forEach(btn => {
+                    btn.style.background = 'rgba(255, 255, 255, 0.08)';
+                    btn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
+                    btn.style.fontWeight = 'normal';
+                });
+                selectAllBtn.textContent = 'Select All';
+                selectAllBtn.style.background = 'linear-gradient(45deg, #ff6b6b, #ff8e53)';
+            } else {
+                selectedEpisodes[seasonNumber] = [];
+                episodeBtns.forEach(btn => {
+                    const episodeNum = parseInt(btn.dataset.episode);
+                    selectedEpisodes[seasonNumber].push(episodeNum);
+                    btn.style.background = 'linear-gradient(45deg, #4ecdc4, #45b7d1)';
+                    btn.style.borderColor = '#4ecdc4';
+                    btn.style.fontWeight = '600';
+                });
+                selectAllBtn.textContent = 'Deselect All';
+                selectAllBtn.style.background = 'linear-gradient(45deg, #4ecdc4, #45b7d1)';
+            }
+            
+            updateSelectionSummary();
+        }
+
+        function updateSelectAllButton(seasonNumber) {
+            const episodeBtns = document.querySelectorAll(`[data-season="${seasonNumber}"][data-episode]`);
+            const selectAllBtn = document.querySelector(`[data-season="${seasonNumber}"] button`);
+            
+            if (!selectAllBtn) return;
+            
+            const allSelected = selectedEpisodes[seasonNumber] && 
+                               selectedEpisodes[seasonNumber].length === episodeBtns.length;
+            
+            if (allSelected) {
+                selectAllBtn.textContent = 'Deselect All';
+                selectAllBtn.style.background = 'linear-gradient(45deg, #4ecdc4, #45b7d1)';
+            } else {
+                selectAllBtn.textContent = 'Select All';
+                selectAllBtn.style.background = 'linear-gradient(45deg, #ff6b6b, #ff8e53)';
+            }
+        }
+
+        function updateSelectionSummary() {
+            const summarySection = document.getElementById('selectionSummary');
+            const summaryText = document.getElementById('summaryText');
+            
+            if (Object.keys(selectedEpisodes).length === 0) {
+                summarySection.style.display = 'none';
+                return;
+            }
+            
+            let summary = '';
+            const seasons = Object.keys(selectedEpisodes).sort((a, b) => parseInt(a) - parseInt(b));
+            
+            for (const season of seasons) {
+                const episodes = selectedEpisodes[season].sort((a, b) => a - b);
+                const seasonDetails = tvShowDetails.seasons.find(s => s.season_number === parseInt(season));
+                const totalEpisodes = seasonDetails ? seasonDetails.episode_count : episodes.length;
+                
+                if (episodes.length === totalEpisodes) {
+                    summary += `<div>• <strong>Season ${season}</strong>: All episodes (${episodes.length})</div>`;
+                } else {
+                    const ranges = [];
+                    let start = episodes[0];
+                    let end = episodes[0];
+                    
+                    for (let i = 1; i < episodes.length; i++) {
+                        if (episodes[i] === end + 1) {
+                            end = episodes[i];
+                        } else {
+                            ranges.push(start === end ? `E${start}` : `E${start}-E${end}`);
+                            start = episodes[i];
+                            end = episodes[i];
+                        }
+                    }
+                    ranges.push(start === end ? `E${start}` : `E${start}-E${end}`);
+                    
+                    summary += `<div>• <strong>Season ${season}</strong>: ${ranges.join(', ')} (${episodes.length} episodes)</div>`;
+                }
+            }
+            
+            summaryText.innerHTML = summary;
+            summarySection.style.display = 'block';
+        }
+
+        function closeSeasonModal() {
+            document.getElementById('seasonModal').style.display = 'none';
+            selectedEpisodes = {};
+            selectedMedia = null;
+            tvShowDetails = null;
+        }
+
+        async function confirmRequest() {
+            if (Object.keys(selectedEpisodes).length === 0) {
+                alert('Please select at least one episode.');
+                return;
+            }
+            
+            console.log('✅ Confirming TV show request with episodes:', selectedEpisodes);
+            document.getElementById('seasonModal').style.display = 'none';
+            
+            try {
+                await submitRequest();
+            } catch (error) {
+                console.error('⚠️ Error in confirmRequest:', error);
+                alert('Error submitting request: ' + error.message);
+            }
         }
 
         // Event listeners
         document.addEventListener('DOMContentLoaded', function() {
+            console.log('📋 DOM loaded, initializing...');
             addTouchSupport();
             
             const savedTheme = localStorage.getItem('theme');
@@ -2778,24 +2552,166 @@
                 loadPopularContent();
             }
             
-            document.getElementById('searchInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
+            // Add search input event listener for Enter key
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) {
+                searchInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        console.log('🔍 Search triggered by Enter key');
+                        searchMedia();
+                    }
+                });
+                console.log('✅ Search input Enter listener added');
+            } else {
+                console.error('❌ Search input element not found');
+            }
+            
+            // Add search button click event listener
+            const searchBtn = document.getElementById('searchBtn');
+            if (searchBtn) {
+                searchBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('🔍 Search button clicked via event listener');
                     searchMedia();
-                }
+                });
+                console.log('✅ Search button click listener added');
+            } else {
+                console.error('❌ Search button element not found');
+            }
+            
+            // Add season modal event listener
+            const seasonModal = document.getElementById('seasonModal');
+            if (seasonModal) {
+                seasonModal.addEventListener('click', function(e) {
+                    if (e.target === this) {
+                        closeSeasonModal();
+                    }
+                });
+                console.log('✅ Season modal click listener added');
+            } else {
+                console.error('❌ Season modal element not found');
+            }
+
+            // Add email input event listener
+            const emailInput = document.getElementById('emailInput');
+            if (emailInput) {
+                emailInput.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        handleEmailSignIn();
+                    }
+                });
+                console.log('✅ Email input Enter listener added');
+            }
+            
+            console.log('✅ All event listeners added successfully');
+        });
+
+        console.log('🎬 Fixed Plex Portal loaded successfully!');
+        
+        // Debug functions - you can call these in the browser console
+        window.testSearch = function() {
+            console.log('🧪 Testing search function');
+            document.getElementById('searchInput').value = 'batman';
+            searchMedia();
+        };
+        
+        window.testMediaType = function(type) {
+            console.log('🧪 Testing media type change to:', type);
+            changeMediaType(type);
+        };
+        
+        window.debugState = function() {
+            console.log('🐛 Current state:', {
+                currentMediaType: currentMediaType,
+                currentUser: currentUser,
+                searchInput: document.getElementById('searchInput')?.value,
+                mainContentVisible: document.getElementById('mainContent')?.style.display !== 'none',
+                searchResultsVisible: document.getElementById('searchResults')?.style.display !== 'none'
+            });
+        };
+        
+        window.debugSearchResults = function() {
+            const searchResults = document.getElementById('searchResults');
+            const mainContent = document.getElementById('mainContent');
+            const body = document.body;
+            
+            console.log('🔍 SEARCH RESULTS DEBUG:', {
+                element: searchResults,
+                exists: !!searchResults,
+                display: searchResults?.style.display,
+                computedDisplay: searchResults ? window.getComputedStyle(searchResults).display : 'none',
+                visibility: searchResults ? window.getComputedStyle(searchResults).visibility : 'none',
+                position: searchResults ? window.getComputedStyle(searchResults).position : 'none',
+                bounds: searchResults ? searchResults.getBoundingClientRect() : null,
+                childCount: searchResults ? searchResults.children.length : 0,
+                innerHTML: searchResults ? searchResults.innerHTML.substring(0, 200) + '...' : 'none'
             });
             
-            document.getElementById('seasonModal').addEventListener('click', function(e) {
-                if (e.target === this) {
-                    closeSeasonModal();
-                }
+            console.log('🔍 MAIN CONTENT DEBUG:', {
+                element: mainContent,
+                exists: !!mainContent,
+                display: mainContent?.style.display,
+                computedDisplay: mainContent ? window.getComputedStyle(mainContent).display : 'none'
             });
-
-            document.getElementById('emailInput').addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    handleEmailSignIn();
-                }
-            });
-        });
+            
+            // Create a completely new test element that bypasses all existing CSS
+            const testElement = document.createElement('div');
+            testElement.id = 'emergency-test';
+            testElement.innerHTML = `
+                <h1>EMERGENCY TEST - CAN YOU SEE THIS?</h1>
+                <p>If you can see this, the JavaScript is working!</p>
+                <p>Search results children: ${searchResults ? searchResults.children.length : 'none'}</p>
+            `;
+            testElement.style.cssText = `
+                position: fixed !important;
+                top: 0 !important;
+                left: 0 !important;
+                width: 100vw !important;
+                height: 100vh !important;
+                background: yellow !important;
+                color: black !important;
+                z-index: 999999 !important;
+                padding: 50px !important;
+                font-size: 24px !important;
+                border: 10px solid red !important;
+                box-sizing: border-box !important;
+            `;
+            
+            // Remove any existing test
+            const existing = document.getElementById('emergency-test');
+            if (existing) existing.remove();
+            
+            // Add to body
+            body.appendChild(testElement);
+            console.log('🔍 Added emergency test element to body');
+            
+            // Also try to make search results super visible
+            if (searchResults) {
+                searchResults.style.cssText = `
+                    display: block !important;
+                    position: fixed !important;
+                    top: 50px !important;
+                    left: 50px !important;
+                    width: 90% !important;
+                    height: 400px !important;
+                    background: red !important;
+                    border: 5px solid yellow !important;
+                    z-index: 9999 !important;
+                    overflow: auto !important;
+                `;
+                console.log('🔍 Applied emergency styles to search results');
+            }
+        };
+        
+        window.removeEmergencyTest = function() {
+            const existing = document.getElementById('emergency-test');
+            if (existing) {
+                existing.remove();
+                console.log('🔍 Removed emergency test element');
+            }
+        };
+        
+        console.log('🧪 Debug functions available: testSearch(), testMediaType(type), debugState(), debugSearchResults()');
     </script>
 </body>
 </html>
