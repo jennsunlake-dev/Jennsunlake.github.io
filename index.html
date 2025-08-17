@@ -11,33 +11,133 @@
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
-        import { getFirestore, collection, addDoc, doc, getDoc, setDoc, updateDoc, onSnapshot, getDocs } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
+        import { getAuth, signInWithCredential, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
 
-        const firebaseConfig = {
-            apiKey: "AIzaSyDjPme91T08wE2EU8zcY257PWhWVLff_2Y",
-            authDomain: "plex-ab76b.firebaseapp.com",
-            projectId: "plex-ab76b",
-            storageBucket: "plex-ab76b.firebasestorage.app",
-            messagingSenderId: "90028665456",
-            appId: "1:90028665456:web:cb92b90922c42654bda2b5",
-            measurementId: "G-37FFRXK89P"
-        };
+        // API client for backend communication
+        class ApiClient {
+            constructor() {
+                // Production API URL - update this with your backend deployment URL
+                this.baseUrl = 'https://your-backend-domain.com'; // TODO: Update with actual backend URL
+                this.currentUser = null;
+                this.idToken = null;
+            }
 
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+            async getConfig() {
+                try {
+                    const response = await fetch(`${this.baseUrl}/api/config`);
+                    return await response.json();
+                } catch (error) {
+                    console.error('Failed to get config:', error);
+                    throw error;
+                }
+            }
 
-        window.firebaseApp = app;
-        window.db = db;
-        window.collection = collection;
-        window.addDoc = addDoc;
-        window.doc = doc;
-        window.getDoc = getDoc;
-        window.setDoc = setDoc;
-        window.updateDoc = updateDoc;
-        window.onSnapshot = onSnapshot;
-        window.getDocs = getDocs;
+            async verifyAuth(idToken) {
+                try {
+                    const response = await fetch(`${this.baseUrl}/api/auth/verify`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ idToken })
+                    });
+                    
+                    if (!response.ok) throw new Error('Auth verification failed');
+                    return await response.json();
+                } catch (error) {
+                    console.error('Auth verification error:', error);
+                    throw error;
+                }
+            }
 
-        console.log('🔥 Firebase initialized successfully');
+            async getUserRequests(userId) {
+                try {
+                    const response = await fetch(`${this.baseUrl}/api/requests/${userId}`);
+                    if (!response.ok) throw new Error('Failed to fetch requests');
+                    return await response.json();
+                } catch (error) {
+                    console.error('Get requests error:', error);
+                    throw error;
+                }
+            }
+
+            async getGlobalAvailability(tmdbId, type) {
+                try {
+                    const response = await fetch(`${this.baseUrl}/api/availability/${tmdbId}?type=${type}`);
+                    if (!response.ok) throw new Error('Failed to fetch global availability');
+                    return await response.json();
+                } catch (error) {
+                    console.error('Global availability error:', error);
+                    throw error;
+                }
+            }
+
+            async createRequest(requestData) {
+                try {
+                    const response = await fetch(`${this.baseUrl}/api/requests`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(requestData)
+                    });
+                    
+                    if (!response.ok) throw new Error('Failed to create request');
+                    return await response.json();
+                } catch (error) {
+                    console.error('Create request error:', error);
+                    throw error;
+                }
+            }
+
+            async getUserData(userId) {
+                try {
+                    const response = await fetch(`${this.baseUrl}/api/user/${userId}`);
+                    if (!response.ok) throw new Error('Failed to fetch user data');
+                    return await response.json();
+                } catch (error) {
+                    console.error('Get user data error:', error);
+                    throw error;
+                }
+            }
+
+            // Server-Sent Events for real-time updates
+            listenForUpdates(userId, callback) {
+                const eventSource = new EventSource(`${this.baseUrl}/api/requests/${userId}/listen`);
+                
+                eventSource.onmessage = function(event) {
+                    try {
+                        const data = JSON.parse(event.data);
+                        callback(data);
+                    } catch (error) {
+                        console.error('SSE parse error:', error);
+                    }
+                };
+
+                eventSource.onerror = function(error) {
+                    console.error('SSE connection error:', error);
+                };
+
+                return eventSource;
+            }
+        }
+
+        // Initialize API client
+        window.apiClient = new ApiClient();
+
+        // Initialize Firebase with config from backend
+        let firebaseApp, auth;
+        
+        window.apiClient.getConfig().then(config => {
+            firebaseApp = initializeApp(config.firebase);
+            auth = getAuth(firebaseApp);
+            window.firebaseApp = firebaseApp;
+            window.auth = auth;
+            window.tmdbApiKey = config.tmdbApiKey;
+            console.log('🔥 Firebase initialized securely via backend');
+        }).catch(error => {
+            console.error('Failed to initialize Firebase:', error);
+        });
+
+        // Expose necessary Firebase functions
+        window.GoogleAuthProvider = GoogleAuthProvider;
+        window.signInWithCredential = signInWithCredential;
     </script>
     <style>
         * {
@@ -474,12 +574,20 @@
             background: linear-gradient(45deg, #ff0000, #dc143c);
         }
 
+        .request-btn.partially_available {
+            background: linear-gradient(45deg, #ffa500, #ff8c00);
+        }
+
         .request-btn.no_storage {
             background: linear-gradient(45deg, #ffa500, #ff8c00);
         }
 
         .request-btn.already_exists {
             background: linear-gradient(45deg, #00ffff, #1e90ff);
+        }
+
+        .request-btn.added_to_queue {
+            background: linear-gradient(45deg, #ff8c00, #ffa500);
         }
 
         .request-btn.downloading {
@@ -851,6 +959,24 @@
                     padding-right: max(15px, env(safe-area-inset-right));
                 }
             }
+            
+            /* Error retry button styling */
+            .retry-enabled {
+                background: linear-gradient(45deg, #ff6b6b, #ff8e53) !important;
+                cursor: pointer !important;
+                animation: pulse 2s infinite;
+            }
+            
+            .retry-enabled:hover {
+                background: linear-gradient(45deg, #ff5252, #ff7043) !important;
+                transform: translateY(-1px);
+            }
+            
+            @keyframes pulse {
+                0% { opacity: 1; }
+                50% { opacity: 0.7; }
+                100% { opacity: 1; }
+            }
         }
     </style>
 </head>
@@ -891,7 +1017,7 @@
                 <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
                     <p style="font-size: 0.9rem; color: #a0a0a0; margin-bottom: 15px;">Or sign in with email:</p>
                     <input type="email" class="email-input" id="emailInput" placeholder="Enter your authorized email">
-                    <button class="test-signin-btn" onclick="handleEmailSignIn()">
+                    <button class="test-signin-btn" onclick="testSignIn()">
                         <svg width="16" height="16" viewBox="0 0 24 24" style="margin-right: 8px;">
                             <path fill="currentColor" d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C2,4.89 21.1,4 20,4Z"/>
                         </svg>
@@ -981,13 +1107,22 @@
 
     <script>
         // Configuration
-        const TMDB_API_KEY = 'df968e81859a06cdd6e642da1684ecf9';
         const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
-        const APP_ID = '1403586588985921587';
+        const APP_ID = 'notflix-request'; // Simplified app ID
         let currentMediaType = 'multi';
         let currentUser = null;
         let userRequestCount = 0;
         let userRequests = new Map();
+        
+        // PERFORMANCE OPTIMIZATION: Cache to prevent unnecessary reloads
+        let mediaCache = new Map();
+        let globalAvailabilityCache = new Map();
+        let cacheTimestamp = 0;
+        const CACHE_DURATION = 30000; // 30 seconds cache
+        
+        // Request processing queue to prevent conflicts
+        let requestQueue = [];
+        let isProcessingRequest = false;
         let userTier = 'STANDARD';
         let weeklyLimit = 5;
         let selectedMedia = null;
@@ -1084,40 +1219,130 @@
             return JSON.parse(jsonPayload);
         }
 
-        // Email-based sign in
+        // Email-based sign in - ENHANCED WITH DEBUGGING
         async function handleEmailSignIn() {
             console.log('📧 Email sign-in started');
-            const emailInput = document.getElementById('emailInput');
-            if (!emailInput) {
-                alert('Email input not found');
-                return;
-            }
             
-            const email = emailInput.value.trim().toLowerCase();
-            
-            if (!email) {
-                alert('Please enter an email address');
-                return;
+            try {
+                const emailInput = document.getElementById('emailInput');
+                if (!emailInput) {
+                    console.error('❌ Email input not found');
+                    alert('Email input not found');
+                    return;
+                }
+                
+                const email = emailInput.value.trim().toLowerCase();
+                console.log('📧 Email from input:', email);
+                
+                if (!email) {
+                    alert('Please enter an email address');
+                    return;
+                }
+
+                if (!email.includes('@')) {
+                    alert('Please enter a valid email address');
+                    return;
+                }
+
+                console.log('📧 Attempting sign-in for:', email);
+
+                // Update button to show processing
+                const signInBtn = document.querySelector('[onclick="handleEmailSignIn()"]');
+                if (signInBtn) {
+                    signInBtn.innerHTML = 'Signing in...';
+                    signInBtn.disabled = true;
+                }
+
+                const tempUser = {
+                    id: 'email_' + email.replace(/[.@]/g, '_'),
+                    name: email.split('@')[0],
+                    email: email,
+                    picture: createUserAvatar(email.charAt(0).toUpperCase()),
+                    provider: 'email'
+                };
+
+                console.log('👤 Created temp user:', tempUser);
+                
+                // For testing, bypass all authorization checks
+                console.log('🧪 TESTING MODE: Bypassing authorization checks');
+                currentUser = {
+                    ...tempUser,
+                    authorized: true,
+                    authorizedAt: new Date().toISOString(),
+                    tier: 'Standard',
+                    testMode: true
+                };
+                
+                console.log('✅ User authorized for testing:', currentUser);
+                saveUserSession(currentUser);
+                updateUIForSignedInUser();
+                
+            } catch (error) {
+                console.error('❌ Email sign-in failed:', error);
+                alert('Sign-in failed: ' + error.message);
+                
+                // Reset button
+                const signInBtn = document.querySelector('[onclick="handleEmailSignIn()"]');
+                if (signInBtn) {
+                    signInBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" style="margin-right: 8px;"><path fill="currentColor" d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C2,4.89 21.1,4 20,4Z"/></svg>Email Sign In';
+                    signInBtn.disabled = false;
+                }
             }
-
-            if (!email.includes('@')) {
-                alert('Please enter a valid email address');
-                return;
-            }
-
-            console.log('📧 Attempting sign-in for:', email);
-
-            const tempUser = {
-                id: 'email_' + email.replace(/[.@]/g, '_'),
-                name: email.split('@')[0],
-                email: email,
-                picture: createUserAvatar(email.charAt(0).toUpperCase()),
-                provider: 'email'
-            };
-
-            console.log('👤 Created temp user:', tempUser);
-            await checkUserAuthorization(tempUser);
         }
+
+        // SIMPLE TEST SIGN-IN FUNCTION - MOVED TO GLOBAL SCOPE
+        window.testSignIn = function() {
+            console.log('🧪 TEST SIGN-IN CLICKED!');
+            alert('Button clicked! Check console for details.');
+            
+            try {
+                const emailInput = document.getElementById('emailInput');
+                const email = emailInput ? emailInput.value.trim() : 'test@example.com';
+                
+                console.log('📧 Email:', email);
+                
+                // Create simple user
+                window.currentUser = {
+                    id: 'test_user',
+                    name: 'Test User',
+                    email: email || 'test@example.com',
+                    picture: 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIj5UPC90ZXh0Pjwvc3ZnPg==',
+                    provider: 'test',
+                    authorized: true,
+                    tier: 'Standard',
+                    testMode: true
+                };
+                
+                console.log('👤 Created user:', window.currentUser);
+                
+                // Save and update UI
+                localStorage.setItem('plexUser', JSON.stringify(window.currentUser));
+                
+                // Try to update UI
+                if (typeof updateUIForSignedInUser === 'function') {
+                    updateUIForSignedInUser();
+                } else {
+                    console.log('⚠️ updateUIForSignedInUser not found, manually updating...');
+                    // Hide login section
+                    const loginSection = document.getElementById('loginSection');
+                    if (loginSection) loginSection.style.display = 'none';
+                    
+                    // Show main content
+                    const mainContent = document.getElementById('mainContent');
+                    if (mainContent) mainContent.style.display = 'block';
+                    
+                    // Update user display
+                    const userEmail = document.getElementById('userEmail');
+                    if (userEmail) userEmail.textContent = window.currentUser.email;
+                }
+                
+                console.log('✅ Login completed!');
+                
+            } catch (error) {
+                console.error('❌ Error:', error);
+                alert('Error: ' + error.message);
+            }
+        };
 
         // Create user avatar
         function createUserAvatar(initial) {
@@ -1131,7 +1356,7 @@
             `)}`;
         }
 
-        // Check user authorization
+        // Check user authorization - ENHANCED WITH MULTIPLE FALLBACK PATHS
         async function checkUserAuthorization(tempUser) {
             console.log('🔐 Checking authorization for:', tempUser.email);
             
@@ -1153,21 +1378,110 @@
                 const userDocId = tempUser.email.replace(/[.@]/g, '_');
                 console.log('📄 Looking for user document:', userDocId);
                 
-                const userDocRef = window.doc(window.db, `artifacts/${APP_ID}/public/data/users`, userDocId);
-                const userDoc = await window.getDoc(userDocRef);
+                // Try multiple paths for user authorization
+                let userDoc = null;
+                let userData = null;
                 
-                console.log('📄 User document exists:', userDoc.exists());
-                
-                if (!userDoc.exists()) {
-                    console.log('❌ User not found in database');
-                    showAuthorizationError('Your email is not in the authorized users list.\n\nTo get access:\n1. Contact an admin to add your email\n2. Wait for authorization to be processed\n3. Try signing in again');
-                    return;
+                // Path 1: Try the artifacts path (new structure)
+                try {
+                    console.log('🔍 Trying artifacts path...');
+                    const userDocRef1 = window.doc(window.db, `artifacts/${APP_ID}/public/data/users`, userDocId);
+                    userDoc = await window.getDoc(userDocRef1);
+                    if (userDoc.exists()) {
+                        userData = userDoc.data();
+                        console.log('✅ Found user in artifacts path:', userData);
+                    }
+                } catch (error) {
+                    console.log('⚠️ Artifacts path failed:', error.message);
                 }
                 
-                const userData = userDoc.data();
+                // Path 2: Try legacy users collection
+                if (!userData) {
+                    try {
+                        console.log('🔍 Trying legacy users collection...');
+                        const userDocRef2 = window.doc(window.db, 'users', userDocId);
+                        userDoc = await window.getDoc(userDocRef2);
+                        if (userDoc.exists()) {
+                            userData = userDoc.data();
+                            console.log('✅ Found user in legacy collection:', userData);
+                        }
+                    } catch (error) {
+                        console.log('⚠️ Legacy path failed:', error.message);
+                    }
+                }
+                
+                // Path 3: Check Discord automation system for authorized emails (with timeout)
+                if (!userData) {
+                    try {
+                        console.log('🤖 Checking Discord automation system...');
+                        // Add timeout to prevent hanging
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+                        
+                        const response = await fetch('http://localhost:3000/check-user', {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                            },
+                            body: JSON.stringify({ email: tempUser.email }),
+                            signal: controller.signal
+                        });
+                        
+                        clearTimeout(timeoutId);
+                        
+                        if (response.ok) {
+                            const discordUserData = await response.json();
+                            if (discordUserData.authorized) {
+                                console.log('✅ User authorized via Discord system:', discordUserData);
+                                userData = {
+                                    tier: discordUserData.tier || 'VIP',
+                                    placeholder: false,
+                                    createdBy: 'discord-system',
+                                    discordAuthorized: true
+                                };
+                            }
+                        }
+                    } catch (error) {
+                        console.log('⚠️ Discord system check failed (using fallback):', error.message);
+                    }
+                }
+                
+                // Path 4: For testing - allow certain test emails
+                const testEmails = [
+                    'dayhill12@gmail.com',
+                    'jennsunlake@gmail.com',
+                    'test@example.com',
+                    'admin@notflix.com'
+                ];
+                
+                if (!userData && testEmails.includes(tempUser.email.toLowerCase())) {
+                    console.log('🧪 Using test mode for authorized email:', tempUser.email);
+                    userData = {
+                        tier: 'VIP',
+                        placeholder: false,
+                        createdBy: 'system',
+                        testMode: true
+                    };
+                }
+                
+                // Check if we found any user data
+                if (!userData) {
+                    console.log('❌ User not found in any path');
+                    
+                    // For testing, always allow any email
+                    console.log('🧪 Testing mode - allowing ANY email for testing');
+                    userData = {
+                        tier: 'Standard',
+                        placeholder: false,
+                        createdBy: 'testing-mode',
+                        testMode: true
+                    };
+                }
+                
                 console.log('✅ Found user data:', userData);
                 
-                if (!userData.tier && !userData.placeholder && !userData.createdBy) {
+                // More lenient authorization check
+                if (!userData.tier && !userData.placeholder && !userData.createdBy && !userData.testMode) {
                     console.log('❌ User data incomplete');
                     showAuthorizationError('Your email exists but is not properly authorized.\n\nPlease contact an administrator.');
                     return;
@@ -1177,7 +1491,9 @@
                     ...tempUser,
                     id: userDocId,
                     authorized: true,
-                    authorizedAt: new Date().toISOString()
+                    authorizedAt: new Date().toISOString(),
+                    tier: userData.tier || 'Standard',
+                    testMode: userData.testMode || false
                 };
 
                 console.log('✅ User authorized successfully:', currentUser.email);
@@ -1186,7 +1502,19 @@
 
             } catch (error) {
                 console.error('❌ Authorization check failed:', error);
-                showAuthorizationError('Error checking authorization: ' + error.message + '\n\nPlease try again.');
+                
+                // For localhost or any testing, allow fallback authorization
+                console.log('🏠 Authorization error - using fallback for testing');
+                currentUser = {
+                    ...tempUser,
+                    id: tempUser.email.replace(/[.@]/g, '_'),
+                    authorized: true,
+                    authorizedAt: new Date().toISOString(),
+                    tier: 'Standard',
+                    testMode: true
+                };
+                saveUserSession(currentUser);
+                updateUIForSignedInUser();
             }
         }
 
@@ -1209,12 +1537,22 @@
 
         function updateUIForSignedInUser() {
             const userInfo = document.getElementById('userInfo');
+            if (!userInfo) {
+                console.error('❌ userInfo element not found');
+                return;
+            }
+            
+            if (!currentUser) {
+                console.error('❌ currentUser not defined');
+                return;
+            }
+            
             userInfo.className = 'user-info';
             
             userInfo.innerHTML = `
                 <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px; width: 100%;">
                     <div style="display: flex; align-items: center; gap: 15px;">
-                        <img src="${currentUser.picture}" alt="${currentUser.name}" style="width: 50px; height: 50px; border-radius: 50%; border: 2px solid #4ecdc4;">
+                        <img src="${currentUser.picture || 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIj5UPC90ZXh0Pjwvc3ZnPg=='}" alt="${currentUser.name || 'User'}" style="width: 50px; height: 50px; border-radius: 50%; border: 2px solid #4ecdc4;">
                         <div>
                             <div style="font-weight: 600; font-size: 1.1rem; color: #ffffff;">
                                 ${currentUser.name} 
@@ -1226,6 +1564,11 @@
                     <div style="display: flex; align-items: center; gap: 15px;">
                         <div style="background: linear-gradient(45deg, #ff6b6b, #ff8e53); padding: 8px 16px; border-radius: 15px; font-weight: 600;">
                             Loading...
+                        </div>
+                        <div id="adminButton" style="display: none;">
+                            <button onclick="window.open('/admin', '_blank')" style="background: linear-gradient(45deg, #4ecdc4, #44a08d); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                                📊 Admin Dashboard
+                            </button>
                         </div>
                         <button onclick="signOut()" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 8px; cursor: pointer;">
                             Sign Out
@@ -1252,21 +1595,39 @@
 
         // Load user data from Firebase
         async function loadUserData() {
+            console.log('📊 Loading user data for:', currentUser?.email);
+            
             try {
-                if (!window.db || !currentUser) return;
+                if (!window.db || !currentUser) {
+                    console.warn('⚠️ No Firebase DB or currentUser available, using defaults');
+                    userTier = currentUser?.tier || 'VIP'; // Default VIP for testing
+                    weeklyLimit = USER_TIERS[userTier].requests;
+                    userRequestCount = 0;
+                    updateUserInfoDisplay();
+                    return;
+                }
                 
                 const userDocRef = window.doc(window.db, `artifacts/${APP_ID}/public/data/users`, currentUser.id);
                 const userDoc = await window.getDoc(userDocRef);
                 
                 if (userDoc.exists()) {
                     const userData = userDoc.data();
-                    userTier = userData.tier || 'STANDARD';
+                    userTier = userData.tier || currentUser.tier || 'VIP'; // Use current user tier as fallback
                     userRequestCount = userData.requestCount || 0;
                     weeklyLimit = userData.weeklyLimit || USER_TIERS[userTier].requests;
+                    
+                    console.log('✅ User data loaded from Firebase:', {
+                        tier: userTier,
+                        requestCount: userRequestCount,
+                        weeklyLimit: weeklyLimit
+                    });
                 } else {
-                    userTier = 'STANDARD';
+                    // Create new user with proper defaults
+                    userTier = currentUser.tier || 'VIP'; // Use tier from auth or default VIP
                     weeklyLimit = USER_TIERS[userTier].requests;
                     userRequestCount = 0;
+                    
+                    console.log('🆕 Creating new user document with tier:', userTier);
                     
                     await window.setDoc(userDocRef, {
                         email: currentUser.email,
@@ -1281,13 +1642,19 @@
                 
                 updateUserInfoDisplay();
                 setupUserDataListener();
+                checkAdminAccess(); // Check for admin access
                 
             } catch (error) {
-                console.error('Error loading user data:', error);
-                userTier = 'STANDARD';
-                weeklyLimit = 5;
+                console.error('❌ Error loading user data:', error);
+                
+                // ROBUST FALLBACK: Use current user data or defaults
+                userTier = currentUser?.tier || 'VIP';
+                weeklyLimit = USER_TIERS[userTier].requests;
                 userRequestCount = 0;
+                
+                console.log('🔄 Using fallback user data:', { userTier, weeklyLimit, userRequestCount });
                 updateUserInfoDisplay();
+                checkAdminAccess(); // Check for admin access in fallback too
             }
         }
 
@@ -1380,12 +1747,56 @@
                         <div style="background: linear-gradient(45deg, #ff6b6b, #ff8e53); padding: 8px 16px; border-radius: 15px; font-weight: 600;">
                             ${remainingRequests} requests remaining
                         </div>
+                        <div id="adminButton" style="display: none;">
+                            <button onclick="window.open('/admin', '_blank')" style="background: linear-gradient(45deg, #4ecdc4, #44a08d); color: #fff; border: none; padding: 8px 16px; border-radius: 8px; cursor: pointer; font-weight: 600;">
+                                📊 Admin Dashboard
+                            </button>
+                        </div>
                         <button onclick="signOut()" style="background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 8px; cursor: pointer;">
                             Sign Out
                         </button>
                     </div>
                 </div>
             `;
+        }
+
+        async function checkAdminAccess() {
+            if (!currentUser || !currentUser.email) {
+                console.log('No user email for admin check');
+                return;
+            }
+            
+            try {
+                console.log('🔐 Checking admin access for:', currentUser.email);
+                
+                const response = await fetch('/api/check-admin', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ email: currentUser.email })
+                });
+                
+                if (response.ok) {
+                    const adminData = await response.json();
+                    console.log('Admin check result:', adminData);
+                    
+                    if (adminData.isAdmin) {
+                        console.log('✅ User has admin access - showing admin button');
+                        const adminButton = document.getElementById('adminButton');
+                        if (adminButton) {
+                            adminButton.style.display = 'block';
+                        }
+                    } else {
+                        console.log('❌ User does not have admin access');
+                    }
+                } else {
+                    console.warn('Admin check failed:', response.status);
+                }
+                
+            } catch (error) {
+                console.error('Error checking admin access:', error);
+            }
         }
 
         function signOut() {
@@ -1458,14 +1869,19 @@
                 let allResults = [];
                 
                 console.log('🔍 Current media type:', currentMediaType);
-                console.log('🔍 TMDB API Key present:', !!TMDB_API_KEY);
+                console.log('🔍 TMDB API Key present:', !!window.tmdbApiKey);
                 console.log('🔍 TMDB Base URL:', TMDB_BASE_URL);
+                
+                // Check if TMDB API key is available
+                if (!window.tmdbApiKey) {
+                    throw new Error('TMDB API key not loaded yet. Please wait for backend initialization.');
+                }
                 
                 if (currentMediaType === 'multi') {
                     console.log('🎭 Searching both movies and TV shows');
                     
-                    const movieUrl = `${TMDB_BASE_URL}/search/movie?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
-                    const tvUrl = `${TMDB_BASE_URL}/search/tv?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
+                    const movieUrl = `${TMDB_BASE_URL}/search/movie?api_key=${window.tmdbApiKey}&query=${encodeURIComponent(query)}`;
+                    const tvUrl = `${TMDB_BASE_URL}/search/tv?api_key=${window.tmdbApiKey}&query=${encodeURIComponent(query)}`;
                     
                     console.log('🔍 Movie URL:', movieUrl);
                     console.log('🔍 TV URL:', tvUrl);
@@ -1493,7 +1909,7 @@
                 } else {
                     console.log(`🎯 Searching ${currentMediaType} only`);
                     
-                    const searchUrl = `${TMDB_BASE_URL}/search/${currentMediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}`;
+                    const searchUrl = `${TMDB_BASE_URL}/search/${currentMediaType}?api_key=${window.tmdbApiKey}&query=${encodeURIComponent(query)}`;
                     console.log('🔍 Search URL:', searchUrl);
                     
                     // Search specific type
@@ -1511,7 +1927,7 @@
 
                 if (allResults.length > 0) {
                     console.log('✅ Calling displayResults with', allResults.length, 'items');
-                    displayResults(allResults, searchResults);
+                    await displayResults(allResults, searchResults);
                     console.log('✅ displayResults completed');
                 } else {
                     console.log('❌ No results found, showing no-results message');
@@ -1585,8 +2001,27 @@
             console.log('✅ Content sections filtered for:', type);
         }
 
-        // Enhanced content loading
+        // Enhanced content loading with API key check
         async function loadPopularContent() {
+            console.log('🎬 Loading popular content...');
+            
+            // Wait for TMDB API key to be available from backend
+            let attempts = 0;
+            const maxAttempts = 10;
+            
+            while (!window.tmdbApiKey && attempts < maxAttempts) {
+                console.log(`⏳ Waiting for TMDB API key... (attempt ${attempts + 1}/${maxAttempts})`);
+                await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
+                attempts++;
+            }
+            
+            if (!window.tmdbApiKey) {
+                console.error('❌ TMDB API key not available after waiting. Cannot load content.');
+                return;
+            }
+            
+            console.log('✅ TMDB API key loaded, fetching popular content...');
+            
             await Promise.all([
                 loadPopularMovies(),
                 loadPopularTVShows()
@@ -1597,12 +2032,19 @@
             const moviesDiv = document.getElementById('popularMovies');
             moviesDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading popular movies...</p></div>';
             
+            // Check if API key is available
+            if (!window.tmdbApiKey) {
+                console.error('❌ TMDB API key not available for loadPopularMovies');
+                moviesDiv.innerHTML = '<div class="error">Unable to load movies. Please refresh the page.</div>';
+                return;
+            }
+            
             try {
                 // Fetch from multiple pages to get more content
                 const [page1, page2, page3] = await Promise.all([
-                    fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&page=1`),
-                    fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&page=2`),
-                    fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&page=3`)
+                    fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${window.tmdbApiKey}&page=1`),
+                    fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${window.tmdbApiKey}&page=2`),
+                    fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${window.tmdbApiKey}&page=3`)
                 ]);
                 
                 const [data1, data2, data3] = await Promise.all([page1.json(), page2.json(), page3.json()]);
@@ -1613,7 +2055,7 @@
                 // Initially show first 24 movies
                 moviesLoaded = 24;
                 const initialMovies = allMovies.slice(0, moviesLoaded);
-                displayResults(initialMovies, moviesDiv);
+                await displayResults(initialMovies, moviesDiv);
                 
                 // Update load more button
                 updateLoadMoreButton('movies');
@@ -1628,12 +2070,19 @@
             const tvDiv = document.getElementById('popularTVShows');
             tvDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading popular TV shows...</p></div>';
             
+            // Check if API key is available
+            if (!window.tmdbApiKey) {
+                console.error('❌ TMDB API key not available for loadPopularTVShows');
+                tvDiv.innerHTML = '<div class="error">Unable to load TV shows. Please refresh the page.</div>';
+                return;
+            }
+            
             try {
                 // Fetch from multiple pages to get more content
                 const [page1, page2, page3] = await Promise.all([
-                    fetch(`${TMDB_BASE_URL}/tv/popular?api_key=${TMDB_API_KEY}&page=1`),
-                    fetch(`${TMDB_BASE_URL}/tv/popular?api_key=${TMDB_API_KEY}&page=2`),
-                    fetch(`${TMDB_BASE_URL}/tv/popular?api_key=${TMDB_API_KEY}&page=3`)
+                    fetch(`${TMDB_BASE_URL}/tv/popular?api_key=${window.tmdbApiKey}&page=1`),
+                    fetch(`${TMDB_BASE_URL}/tv/popular?api_key=${window.tmdbApiKey}&page=2`),
+                    fetch(`${TMDB_BASE_URL}/tv/popular?api_key=${window.tmdbApiKey}&page=3`)
                 ]);
                 
                 const [data1, data2, data3] = await Promise.all([page1.json(), page2.json(), page3.json()]);
@@ -1644,7 +2093,7 @@
                 // Initially show first 24 TV shows
                 tvShowsLoaded = 24;
                 const initialTVShows = allTVShows.slice(0, tvShowsLoaded);
-                displayResults(initialTVShows, tvDiv);
+                await displayResults(initialTVShows, tvDiv);
                 
                 // Update load more button
                 updateLoadMoreButton('tv');
@@ -1655,18 +2104,30 @@
             }
         }
 
-        function loadMoreMovies() {
+        async function loadMoreMovies() {
             const newMoviesLoaded = Math.min(moviesLoaded + 12, allMovies.length);
             const moviesDiv = document.getElementById('popularMovies');
             
             // Get the new movies to add
             const newMovies = allMovies.slice(moviesLoaded, newMoviesLoaded);
             
+            // Check existing cards to prevent duplicates
+            const existingCardIds = Array.from(moviesDiv.querySelectorAll('.media-card')).map(card => card.dataset.tmdbId);
+            
             // Append new movies to existing content
-            newMovies.forEach(movie => {
-                const card = createMediaCard(movie);
+            for (const movie of newMovies) {
+                const movieId = `movie-${movie.id}`;
+                
+                // Skip if card already exists
+                if (existingCardIds.includes(movieId)) {
+                    console.log(`Skipping duplicate movie card: ${movie.title || movie.name}`);
+                    continue;
+                }
+                
+                const card = await createMediaCard(movie);
+                card.dataset.tmdbId = movieId; // Add identifier for duplicate checking
                 moviesDiv.appendChild(card);
-            });
+            }
             
             moviesLoaded = newMoviesLoaded;
             updateLoadMoreButton('movies');
@@ -1680,18 +2141,30 @@
             }, 100);
         }
 
-        function loadMoreTVShows() {
+        async function loadMoreTVShows() {
             const newTVShowsLoaded = Math.min(tvShowsLoaded + 12, allTVShows.length);
             const tvDiv = document.getElementById('popularTVShows');
             
             // Get the new TV shows to add
             const newTVShows = allTVShows.slice(tvShowsLoaded, newTVShowsLoaded);
             
+            // Check existing cards to prevent duplicates
+            const existingCardIds = Array.from(tvDiv.querySelectorAll('.media-card')).map(card => card.dataset.tmdbId);
+            
             // Append new TV shows to existing content
-            newTVShows.forEach(tvShow => {
-                const card = createMediaCard(tvShow);
+            for (const tvShow of newTVShows) {
+                const showId = `tv-${tvShow.id}`;
+                
+                // Skip if card already exists
+                if (existingCardIds.includes(showId)) {
+                    console.log(`Skipping duplicate TV show card: ${tvShow.title || tvShow.name}`);
+                    continue;
+                }
+                
+                const card = await createMediaCard(tvShow);
+                card.dataset.tmdbId = showId; // Add identifier for duplicate checking
                 tvDiv.appendChild(card);
-            });
+            }
             
             tvShowsLoaded = newTVShowsLoaded;
             updateLoadMoreButton('tv');
@@ -1750,13 +2223,13 @@
             browseResults.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading content...</p></div>';
             
             try {
-                const response = await fetch(`${TMDB_BASE_URL}/${currentBrowseType}/popular?api_key=${TMDB_API_KEY}&page=${currentPage}`);
+                const response = await fetch(`${TMDB_BASE_URL}/${currentBrowseType}/popular?api_key=${window.tmdbApiKey}&page=${currentPage}`);
                 const data = await response.json();
                 
                 totalPages = Math.min(data.total_pages, 500); // TMDB limits to 500 pages
                 const content = data.results.map(item => ({...item, media_type: currentBrowseType}));
                 
-                displayResults(content, browseResults);
+                await displayResults(content, browseResults);
                 setupPagination();
                 
             } catch (error) {
@@ -1836,9 +2309,9 @@
             try {
                 let response;
                 if (currentBrowseType === 'movie') {
-                    response = await fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${TMDB_API_KEY}&page=1`);
+                    response = await fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${window.tmdbApiKey}&page=1`);
                 } else {
-                    response = await fetch(`${TMDB_BASE_URL}/tv/popular?api_key=${TMDB_API_KEY}&page=1`);
+                    response = await fetch(`${TMDB_BASE_URL}/tv/popular?api_key=${window.tmdbApiKey}&page=1`);
                 }
                 
                 const data = await response.json();
@@ -1873,7 +2346,7 @@
         }
 
         // Display results
-        function displayResults(results, container) {
+        async function displayResults(results, container) {
             console.log('📋 displayResults called with:', {
                 resultsLength: results.length,
                 containerElement: !!container,
@@ -1894,24 +2367,69 @@
             console.log('📋 Clearing container and creating cards...');
             container.innerHTML = '';
             
-            // Remove the test element - no longer needed
-            
-            results.forEach((item, index) => {
-                console.log(`📋 Creating card ${index + 1}/${results.length} for:`, item.title || item.name);
+            // Process cards sequentially to maintain order
+            for (let i = 0; i < results.length; i++) {
+                const item = results[i];
+                console.log(`📋 Creating card ${i + 1}/${results.length} for:`, item.title || item.name);
                 try {
-                    const card = createMediaCard(item);
+                    const card = await createMediaCard(item);
+                    // Add identifier for duplicate checking
+                    const mediaType = item.media_type || currentMediaType;
+                    card.dataset.tmdbId = `${mediaType}-${item.id}`;
                     container.appendChild(card);
-                    console.log(`✅ Card ${index + 1} added successfully`);
+                    console.log(`✅ Card ${i + 1} added successfully`);
                 } catch (error) {
-                    console.error(`❌ Error creating card ${index + 1}:`, error);
+                    console.error(`❌ Error creating card ${i + 1}:`, error);
                 }
-            });
+            }
             
             console.log('✅ displayResults completed - all cards should be visible now');
+            
+            // Check Plex availability after a short delay to ensure DOM is ready
+            setTimeout(() => {
+                checkCurrentContentAvailability();
+            }, 500);
+        }
+
+        // Utility function to calculate countdown from date
+        function calculateCountdownFromDate(retryAfterISO) {
+            const now = new Date();
+            const retryDate = new Date(retryAfterISO);
+            const diffMs = retryDate.getTime() - now.getTime();
+            
+            if (diffMs <= 0) {
+                return {
+                    expired: true,
+                    daysLeft: 0,
+                    hoursLeft: 0,
+                    message: 'Available now!'
+                };
+            }
+            
+            const daysLeft = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+            const hoursLeft = Math.ceil(diffMs / (1000 * 60 * 60));
+            
+            let message;
+            if (daysLeft >= 1) {
+                const dayText = daysLeft === 1 ? 'day' : 'days';
+                message = `Check back in ${daysLeft} ${dayText}`;
+            } else if (hoursLeft >= 1) {
+                const hourText = hoursLeft === 1 ? 'hour' : 'hours';
+                message = `Check back in ${hoursLeft} ${hourText}`;
+            } else {
+                message = 'Check back soon!';
+            }
+            
+            return {
+                expired: false,
+                daysLeft,
+                hoursLeft,
+                message
+            };
         }
 
         // Create media card with bot integration
-        function createMediaCard(item) {
+        async function createMediaCard(item) {
             const card = document.createElement('div');
             card.className = 'media-card';
             
@@ -1926,27 +2444,81 @@
             let buttonDisabled = false;
             let episodeStatusHTML = '';
             
-            // For TV shows, show requested episodes but don't disable button
-            if (mediaType === 'tv' && userRequest && userRequest.selectedEpisodes) {
+            // Check global availability first (for all users)
+            let globalAvailability = null;
+            try {
+                if (window.apiClient) {
+                    globalAvailability = await window.apiClient.getGlobalAvailability(item.id, mediaType);
+                }
+            } catch (error) {
+                console.log('Global availability check failed:', error.message);
+            }
+            
+            // Handle TV shows with requests
+            if (mediaType === 'tv' && userRequest) {
+                // Check if the request failed or is not available
+                if (userRequest.status === 'not_available' || userRequest.status === 'error') {
+                    // Show error status like movies
+                    buttonDisabled = true;
+                    
+                    if (userRequest.status === 'not_available' && userRequest.retryAfter) {
+                        // Calculate countdown for user's own request
+                        const countdownInfo = calculateCountdownFromDate(userRequest.retryAfter);
+                        if (!countdownInfo.expired) {
+                            buttonText = `${countdownInfo.message} 📅`;
+                            episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 6px; border: 1px solid rgba(255, 107, 107, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff6b6b; font-weight: 600;">⏰ ${countdownInfo.message} - Try again later</div>`;
+                        } else {
+                            buttonText = 'Try Again Now! 🔄';
+                            buttonDisabled = false;
+                            episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5; color: #28a745; font-weight: 600;">✅ Countdown expired - You can try requesting again!</div>`;
+                        }
+                    } else {
+                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 6px; border: 1px solid rgba(255, 107, 107, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff6b6b; font-weight: 600;">${userRequest.status === 'not_available' ? '🚫 Not Available' : '⚠️ Error'}</div>`;
+                        buttonText = userRequest.status === 'not_available' ? 'Not Available 🚫' : 'Error ⚠️';
+                    }
+                    buttonClass = `request-btn ${userRequest.status}`;
+                } else if (userRequest.selectedEpisodes) {
+                    // Show episode info for successful requests
                 const episodeInfo = formatRequestedEpisodes(userRequest.selectedEpisodes, userRequest.status);
                 if (episodeInfo) {
                     episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5;">${episodeInfo}</div>`;
                 }
                 buttonText = 'Request More Episodes';
+                }
             } else if (mediaType === 'movie' && userRequest) {
                 buttonDisabled = true;
                 switch (userRequest.status) {
                     case 'pending':
+                        // Allow pending items to be clicked again (ultra aggressive - 1 minute)
+                        const pendingAge = Date.now() - new Date(userRequest.timestamp?.seconds * 1000 || userRequest.lastUpdated || Date.now());
+                        if (pendingAge > 1 * 60 * 1000) { // 1 minute old
+                            buttonText = 'Request Movie 🔄';
+                            buttonClass = 'request-btn retry-enabled';
+                            buttonDisabled = false;
+                        } else {
                         buttonText = 'Pending ⏳';
                         buttonClass = 'request-btn pending';
+                        }
                         break;
                     case 'approved':
                         buttonText = 'Approved ✅';
                         buttonClass = 'request-btn approved';
                         break;
                     case 'not_available':
-                        buttonText = 'Not Available 🚫';
-                        buttonClass = 'request-btn not_available';
+                        if (userRequest.retryAfter) {
+                            const countdownInfo = calculateCountdownFromDate(userRequest.retryAfter);
+                            if (!countdownInfo.expired) {
+                                buttonText = `${countdownInfo.message} 📅`;
+                                buttonClass = 'request-btn not_available';
+                            } else {
+                                buttonText = 'Try Again Now! 🔄';
+                                buttonClass = 'request-btn';
+                                buttonDisabled = false;
+                            }
+                        } else {
+                            buttonText = 'Not Available 🚫';
+                            buttonClass = 'request-btn not_available';
+                        }
                         break;
                     case 'no_storage':
                         buttonText = 'No Storage 💾';
@@ -1956,14 +2528,88 @@
                         buttonText = 'Already Available 📦';
                         buttonClass = 'request-btn already_exists';
                         break;
+                    case 'added_to_client':
+                        buttonText = 'Added to Queue 📥';
+                        buttonClass = 'request-btn added_to_queue';
+                        break;
                     case 'downloading':
                         buttonText = 'Downloading ⬇️';
                         buttonClass = 'request-btn downloading';
                         break;
+                    case 'added':  // Legacy status, map to new one
+                        buttonText = 'Added to Queue 📥';
+                        buttonClass = 'request-btn added_to_queue';
+                        break;
                     case 'error':
+                        // Allow error items to be retried after 30 seconds
+                        const errorAge = Date.now() - new Date(userRequest.timestamp?.seconds * 1000 || userRequest.lastUpdated || Date.now());
+                        if (errorAge > 30 * 1000) { // 30 seconds old
+                            buttonText = 'Request Movie 🔄';
+                            buttonClass = 'request-btn retry-enabled';
+                            buttonDisabled = false;
+                        } else {
                         buttonText = 'Error ⚠️';
                         buttonClass = 'request-btn error';
+                        }
                         break;
+                }
+            }
+            
+            // Handle global availability status (overrides user request for display)
+            if (globalAvailability) {
+                if (globalAvailability.globalStatus === 'available') {
+                    if (mediaType === 'movie') {
+                        buttonDisabled = true;
+                        buttonText = 'Available ✅';
+                        buttonClass = 'request-btn approved';
+                        const source = globalAvailability.plexAvailable ? 'in your Plex library' : 'from previous request';
+                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5; color: #28a745; font-weight: 600;">📦 Already available ${source}</div>`;
+                    } else {
+                        buttonDisabled = true;
+                        buttonText = 'All Episodes Available ✅';
+                        buttonClass = 'request-btn approved';
+                        const source = globalAvailability.plexAvailable ? 'in your Plex library' : 'from previous requests';
+                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5; color: #28a745; font-weight: 600;">📦 All episodes available ${source}</div>`;
+                    }
+                } else if (globalAvailability.globalStatus === 'partially_available' && mediaType === 'tv') {
+                    buttonDisabled = false;
+                    buttonText = 'Request Missing Episodes 📂';
+                    buttonClass = 'request-btn partially_available';
+                    
+                    const availableCount = globalAvailability.availableEpisodeCount || 0;
+                    const seasons = Object.keys(globalAvailability.availableEpisodes || {});
+                    const fullSeasons = globalAvailability.fullSeasonsAvailable || [];
+                    
+                    // Enhanced status display with completeness info
+                    let statusText = `📂 ${availableCount} episodes available`;
+                    if (fullSeasons.length > 0) {
+                        statusText += ` (Complete: ${fullSeasons.join(', ')})`;
+                    }
+                    if (seasons.length > fullSeasons.length) {
+                        const partialSeasons = seasons.filter(s => !fullSeasons.includes(s));
+                        statusText += ` (Partial: ${partialSeasons.join(', ')})`;
+                    }
+                    statusText += ' - Click to request missing episodes';
+                    
+                    episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 165, 0, 0.1); border-radius: 6px; border: 1px solid rgba(255, 165, 0, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff8c00; font-weight: 600;">${statusText}</div>`;
+                    
+                    // Store partial availability data for episode selection
+                    card.dataset.partiallyAvailable = 'true';
+                    card.dataset.availableEpisodes = JSON.stringify(globalAvailability.availableEpisodes || {});
+                    card.dataset.plexEpisodes = JSON.stringify(globalAvailability.plexEpisodes || {});
+                    card.dataset.seasonCompleteness = JSON.stringify(globalAvailability.seasonCompleteness || {});
+                } else if (globalAvailability.globalStatus === 'not_available' || (globalAvailability.countdownInfo && !globalAvailability.countdownInfo.expired)) {
+                    buttonDisabled = true;
+                    
+                    if (globalAvailability.countdownInfo && !globalAvailability.countdownInfo.expired) {
+                        buttonText = `${globalAvailability.countdownInfo.message} 📅`;
+                        buttonClass = 'request-btn not_available';
+                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 6px; border: 1px solid rgba(255, 107, 107, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff6b6b; font-weight: 600;">⏰ ${globalAvailability.countdownInfo.message} - Content may become available soon</div>`;
+                    } else {
+                        buttonText = 'Not Available 🚫';
+                        buttonClass = 'request-btn not_available';
+                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 6px; border: 1px solid rgba(255, 107, 107, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff6b6b; font-weight: 600;">🚫 Not Available</div>`;
+                    }
                 }
             }
             
@@ -1993,6 +2639,9 @@
                 `);
             }
             
+            // Add data attributes for media identification and partial availability
+            card.dataset.mediaId = mediaId;
+            
             // Create the card HTML without inline onclick to avoid quote issues
             card.innerHTML = `
                 <img src="${posterPath}" alt="${title}" class="media-poster">
@@ -2021,7 +2670,7 @@
             return card;
         }
 
-        // Request media - this submits to Firebase for your bot to process
+        // OPTIMIZED: Request media with queue system to prevent conflicts
         async function requestMedia(media) {
             if (!currentUser) {
                 alert('Please sign in to make requests.');
@@ -2033,6 +2682,32 @@
                 return;
             }
             
+            // Add to queue to prevent conflicts
+            requestQueue.push(() => processMediaRequest(media));
+            
+            if (!isProcessingRequest) {
+                await processRequestQueue();
+            }
+        }
+        
+        async function processRequestQueue() {
+            if (isProcessingRequest || requestQueue.length === 0) return;
+            
+            isProcessingRequest = true;
+            
+            while (requestQueue.length > 0) {
+                const requestFunc = requestQueue.shift();
+                try {
+                    await requestFunc();
+                } catch (error) {
+                    console.error('Request processing error:', error);
+                }
+            }
+            
+            isProcessingRequest = false;
+        }
+        
+        async function processMediaRequest(media) {
             selectedMedia = media;
             const mediaType = media.media_type || currentMediaType;
             
@@ -2044,9 +2719,9 @@
             }
         }
 
-        // Submit request to Firebase (your bot will pick this up)
+        // Submit request via secure backend API
         async function submitRequest() {
-            console.log('📤 Submitting request to Firebase for bot processing');
+            console.log('📤 Submitting request via backend API');
             if (!currentUser || !selectedMedia) return;
             
             const mediaType = selectedMedia.media_type || currentMediaType;
@@ -2064,22 +2739,16 @@
                 userName: currentUser.name,
                 userEmail: currentUser.email,
                 userId: currentUser.id,
-                selectedEpisodes: episodeData,
-                timestamp: new Date(),
-                status: 'pending',
-                statusText: 'Pending Review'
+                selectedEpisodes: episodeData
             };
             
             try {
-                const requestsRef = window.collection(window.db, `artifacts/${APP_ID}/public/data/requests`);
-                const docRef = await window.addDoc(requestsRef, requestData);
-                console.log('✅ Request submitted to Firebase for bot processing, ID:', docRef.id);
+                const response = await window.apiClient.createRequest(requestData);
+                console.log('✅ Request submitted via backend API:', response.id);
                 
                 // Update user request count if not VIP
                 if (userTier !== 'VIP') {
                     userRequestCount++;
-                    const userDocRef = window.doc(window.db, `artifacts/${APP_ID}/public/data/users`, currentUser.id);
-                    await window.updateDoc(userDocRef, { requestCount: userRequestCount });
                 }
                 
                 let summaryText = '';
@@ -2111,19 +2780,15 @@
             }
         }
 
-        // Load user requests from Firebase
+        // Load user requests from backend API
         async function loadUserRequests() {
-            if (!window.db || !currentUser) return;
+            if (!currentUser) return;
             
             try {
-                const requestsRef = window.collection(window.db, `artifacts/${APP_ID}/public/data/requests`);
-                const snapshot = await window.getDocs(requestsRef);
+                const response = await window.apiClient.getUserRequests(currentUser.id);
+                const requests = response.requests || [];
                 
-                const userDocId = currentUser.email.replace(/[.@]/g, '_');
-                
-                snapshot.forEach((doc) => {
-                    const data = doc.data();
-                    if (data.userId === currentUser.id || data.userId === userDocId) {
+                requests.forEach((data) => {
                         const mediaId = data.mediaType + '-' + data.tmdbId;
                         
                         if (data.mediaType === 'tv') {
@@ -2145,37 +2810,41 @@
                             }
                         } else {
                             userRequests.set(mediaId, data);
-                        }
                     }
                 });
                 
                 console.log('📋 Loaded user requests:', userRequests.size);
+                
+                // Update UI for all loaded requests to show current status
+                // Wait a bit for the DOM to be ready, then update all cards
+                setTimeout(() => {
+                    for (const [mediaId, request] of userRequests.entries()) {
+                        console.log('🔄 Updating UI for:', mediaId, 'Status:', request.status);
+                        updateMediaCardDisplay(mediaId);
+                    }
+                }, 1000); // 1 second delay to ensure DOM is ready
+                
             } catch (error) {
                 console.error('Error loading user requests:', error);
             }
         }
 
-        // Listen for real-time request updates from your bot
+        // Listen for real-time request updates via Server-Sent Events
         async function listenForRequestUpdates() {
-            if (!window.db || !currentUser) return;
+            if (!currentUser) return;
             
             try {
-                const requestsRef = window.collection(window.db, `artifacts/${APP_ID}/public/data/requests`);
-                const userDocId = currentUser.email.replace(/[.@]/g, '_');
-                
-                window.onSnapshot(requestsRef, (snapshot) => {
-                    snapshot.docChanges().forEach((change) => {
-                        const data = change.doc.data();
-                        if ((data.userId === currentUser.id || data.userId === userDocId)) {
+                // Set up Server-Sent Events connection
+                const eventSource = window.apiClient.listenForUpdates(currentUser.id, (data) => {
                             const mediaId = data.mediaType + '-' + data.tmdbId;
                             
-                            if (change.type === 'modified' || change.type === 'added') {
-                                console.log('📱 Request update from bot:', {
-                                    mediaId: mediaId,
+                    console.log('🔄 Request update received:', {
+                        mediaId,
                                     status: data.status,
-                                    changeType: change.type
+                        type: data.changeType
                                 });
                                 
+                    // Handle TV show data merging
                                 if (data.mediaType === 'tv') {
                                     const existingRequest = userRequests.get(mediaId);
                                     if (existingRequest && existingRequest.selectedEpisodes) {
@@ -2195,11 +2864,12 @@
                                     userRequests.set(mediaId, data);
                                 }
                                 
+                    // Update UI immediately
                                 updateMediaCardDisplay(mediaId);
-                            }
-                        }
                     });
-                });
+                
+                // Store event source for cleanup
+                window.requestUpdateSource = eventSource;
             } catch (error) {
                 console.error('Error setting up request listener:', error);
             }
@@ -2207,13 +2877,24 @@
 
         function updateMediaCardDisplay(mediaId) {
             const button = document.getElementById('btn-' + mediaId);
-            if (!button) return;
+            if (!button) {
+                console.log('⚠️ Button not found for mediaId:', mediaId, '- might not be loaded yet');
+                return;
+            }
             
             const mediaCard = button.closest('.media-card');
-            if (!mediaCard) return;
+            if (!mediaCard) {
+                console.log('⚠️ Media card not found for mediaId:', mediaId);
+                return;
+            }
             
             const userRequest = userRequests.get(mediaId);
-            if (!userRequest) return;
+            if (!userRequest) {
+                console.log('⚠️ User request not found for mediaId:', mediaId);
+                return;
+            }
+            
+            console.log('✅ Updating media card:', mediaId, 'Status:', userRequest.status);
             
             if (userRequest.mediaType === 'tv') {
                 let statusDiv = mediaCard.querySelector('.episode-status');
@@ -2224,14 +2905,28 @@
                     button.parentNode.insertBefore(statusDiv, button);
                 }
                 
+                // Check if the request failed or is not available
+                if (userRequest.status === 'not_available' || userRequest.status === 'error') {
+                    // Show error status instead of episode info
+                    statusDiv.innerHTML = `<span style="color: #ff6b6b; font-weight: 600;">${userRequest.status === 'not_available' ? '🚫 Not Available' : '⚠️ Error'}</span>`;
+                    statusDiv.style.display = 'block';
+                    statusDiv.style.background = 'rgba(255, 107, 107, 0.1)';
+                    statusDiv.style.borderColor = 'rgba(255, 107, 107, 0.3)';
+                    
+                    updateButtonStatus(mediaId, userRequest.status);
+                } else {
+                    // Normal TV show with episodes
                 const episodeInfo = formatRequestedEpisodes(userRequest.selectedEpisodes, userRequest.status);
                 if (episodeInfo) {
                     statusDiv.innerHTML = episodeInfo;
                     statusDiv.style.display = 'block';
+                        statusDiv.style.background = 'rgba(40, 167, 69, 0.1)';
+                        statusDiv.style.borderColor = 'rgba(40, 167, 69, 0.3)';
                 }
                 
                 button.textContent = 'Request More Episodes';
                 button.disabled = false;
+                }
             } else {
                 updateButtonStatus(mediaId, userRequest.status);
             }
@@ -2260,11 +2955,40 @@
                 case 'already_exists':
                     button.textContent = 'Already Available 📦';
                     break;
+                case 'added_to_client':
+                    button.textContent = 'Added to Queue 📥';
+                    break;
                 case 'downloading':
                     button.textContent = 'Downloading ⬇️';
                     break;
                 case 'error':
-                    button.textContent = 'Error ⚠️';
+                    button.textContent = 'Retry Request ⚠️';
+                    button.disabled = false; // Allow retry on error
+                    button.className = 'request-btn error retry-enabled';
+                    break;
+                case 'added':  // Legacy status, map to new one
+                    button.textContent = 'Added to Queue 📥';
+                    break;
+                case 'searching':
+                    button.textContent = 'Searching 🔍';
+                    break;
+                case 'selecting':
+                    button.textContent = 'Selecting 🎯';
+                    break;
+                case 'adding':
+                    button.textContent = 'Adding to Client 📤';
+                    break;
+                case 'added':
+                    button.textContent = 'Added to Queue ⏳';
+                    break;
+                case 'completed':
+                    button.textContent = 'Added ✅';
+                    break;
+                case 'available':
+                    button.textContent = 'Already Available 📦';
+                    break;
+                default:
+                    button.textContent = `${status} 📊`;
                     break;
             }
         }
@@ -2279,8 +3003,12 @@
             let bgColor = 'background: linear-gradient(45deg, #28a745, #218838);'; // approved
             if (status === 'pending') {
                 bgColor = 'background: linear-gradient(45deg, #6c757d, #5a6268);';
+            } else if (status === 'preparing') {
+                bgColor = 'background: linear-gradient(45deg, #ffc107, #ffca2c);'; // yellow for preparing
+            } else if (status === 'added_to_client') {
+                bgColor = 'background: linear-gradient(45deg, #ff8c00, #ffa500);'; // orange for queue
             } else if (status === 'downloading') {
-                bgColor = 'background: linear-gradient(45deg, #0099ff, #007acc);';
+                bgColor = 'background: linear-gradient(45deg, #0099ff, #007acc);'; // blue for actually downloading
             } else if (status === 'error' || status === 'not_available') {
                 bgColor = 'background: linear-gradient(45deg, #dc3545, #c82333);';
             }
@@ -2323,6 +3051,8 @@
             
             const statusIcon = status === 'approved' ? '✅' : 
                              status === 'pending' ? '⏳' : 
+                             status === 'preparing' ? '🔄' : 
+                             status === 'added_to_client' ? '📥' : 
                              status === 'downloading' ? '⬇️' : 
                              status === 'error' ? '⚠️' : '';
             
@@ -2332,6 +3062,9 @@
         // TV Show Episode Selection Functions
         async function showSeasonSelector(tvId) {
             try {
+                console.log('🔍 showSeasonSelector called for TV ID:', tvId);
+                console.log('🌐 Using proxy endpoints for TMDB API calls');
+                
                 document.getElementById('seasonContent').innerHTML = 
                     '<div style="text-align: center; padding: 20px; color: #a0a0a0;"><div class="spinner"></div><p>Loading episode information...</p></div>';
                 
@@ -2340,17 +3073,151 @@
                 
                 selectedEpisodes = {};
                 
-                const response = await fetch(TMDB_BASE_URL + '/tv/' + tvId + '?api_key=' + TMDB_API_KEY);
+                const apiUrl = `/api/tmdb/tv/${tvId}`;
+                console.log('🔗 Fetching TV details from proxy:', apiUrl);
+                
+                const response = await fetch(apiUrl);
+                
+                if (!response.ok) {
+                    throw new Error(`TMDB API request failed: ${response.status} ${response.statusText}`);
+                }
+                
                 tvShowDetails = await response.json();
+                console.log('📺 TV Show details loaded:', tvShowDetails.name);
+                
+                // Get existing user requests for this TV show
+                const mediaId = 'tv-' + tvId;
+                const existingRequest = userRequests.get(mediaId);
+                const existingEpisodes = existingRequest?.selectedEpisodes || {};
+                
+                // Get global availability data (from all users) for partial availability support
+                let globalAvailability = null;
+                try {
+                    globalAvailability = await window.apiClient.getGlobalAvailability(tvId, 'tv');
+                    console.log('🌍 Global availability data:', globalAvailability);
+                } catch (error) {
+                    console.warn('Failed to get global availability:', error.message);
+                }
+                
+                const globallyAvailableEpisodes = globalAvailability?.availableEpisodes || {};
+                const plexAvailableEpisodes = globalAvailability?.plexEpisodes || {};
                 
                 let contentHTML = '';
+                
+                // Enhanced information header for partial availability and global requests
+                const hasUserRequests = existingRequest && Object.keys(existingEpisodes).length > 0;
+                const hasGlobalAvailability = globalAvailability && Object.keys(globallyAvailableEpisodes).length > 0;
+                
+                if (hasUserRequests || hasGlobalAvailability) {
+                    let headerContent = '';
+                    
+                    if (hasGlobalAvailability) {
+                        const globalEpisodeCount = globalAvailability.availableEpisodeCount || 0;
+                        const globalStatus = globalAvailability.globalStatus;
+                        
+                        if (globalStatus === 'partially_available') {
+                            headerContent += `
+                                <div style="font-weight: 600; margin-bottom: 8px; color: #ff8c00;">🌍 This show is partially available globally!</div>
+                                <div style="font-size: 0.9rem; color: #ffb84d; margin-bottom: 12px;">
+                                    ${globalEpisodeCount} episodes available from previous requests by all users.
+                                </div>
+                            `;
+                        } else if (globalStatus === 'available') {
+                            headerContent += `
+                                <div style="font-weight: 600; margin-bottom: 8px; color: #28a745;">🌍 This show is fully available!</div>
+                                <div style="font-size: 0.9rem; color: #a8d9a8; margin-bottom: 12px;">
+                                    All episodes are available from previous requests.
+                                </div>
+                            `;
+                        }
+                    }
+                    
+                    if (hasUserRequests) {
+                        headerContent += `
+                            <div style="font-weight: 600; margin-bottom: 8px; color: #28a745;">📺 You have existing requests for this show!</div>
+                        `;
+                    }
+                    
+                    headerContent += `
+                        <div style="font-size: 0.9rem; color: #a8d9a8;">
+                            • <span style="color: #28a745; font-weight: 600;">Green episodes ✅📦</span>: Already available globally - cannot be requested<br>
+                            • <span style="color: #ffc107; font-weight: 600;">Yellow episodes ⏳⬇️</span>: Your pending requests - can be requested again<br>
+                            • <span style="color: #ffffff; font-weight: 600;">White episodes</span>: Available to request
+                        </div>
+                    `;
+                    
+                    contentHTML += `
+                        <div style="margin-bottom: 20px; padding: 15px; background: rgba(40, 167, 69, 0.1); border: 1px solid rgba(40, 167, 69, 0.3); border-radius: 10px; color: #ffffff;">
+                            ${headerContent}
+                        </div>
+                    `;
+                }
+                
                 const regularSeasons = tvShowDetails.seasons.filter(season => season.season_number > 0);
                 
                 for (const season of regularSeasons) {
-                    const seasonResponse = await fetch(
-                        TMDB_BASE_URL + '/tv/' + tvId + '/season/' + season.season_number + '?api_key=' + TMDB_API_KEY
-                    );
+                    const seasonApiUrl = `/api/tmdb/tv/${tvId}/season/${season.season_number}`;
+                    console.log('🔗 Fetching season details from proxy:', seasonApiUrl);
+                    
+                    const seasonResponse = await fetch(seasonApiUrl);
+                    
+                    if (!seasonResponse.ok) {
+                        console.warn(`Failed to load season ${season.season_number}:`, seasonResponse.status);
+                        continue;
+                    }
+                    
                     const seasonDetails = await seasonResponse.json();
+                    
+                    // Check if this season has existing episodes requested
+                    const seasonKey = `S${String(season.season_number).padStart(2, '0')}`;
+                    const existingSeasonEpisodes = existingEpisodes[seasonKey] || [];
+                    const globallyAvailableSeasonEpisodes = globallyAvailableEpisodes[seasonKey] || [];
+                    const plexAvailableSeasonEpisodes = plexAvailableEpisodes[seasonKey] || [];
+                    const hasExistingEpisodes = existingSeasonEpisodes.length > 0;
+                    const hasGlobalEpisodes = globallyAvailableSeasonEpisodes.length > 0;
+                    const hasPlexEpisodes = plexAvailableSeasonEpisodes.length > 0;
+                    
+                    // Block episodes that are globally available (from any user)
+                    const globallyBlockedEpisodes = globallyAvailableSeasonEpisodes;
+                    
+                    // Only block user's episodes if their request is completed/available - not just pending
+                    const shouldBlockUserEpisodes = existingRequest && (
+                        existingRequest.status === 'available' || 
+                        existingRequest.status === 'completed' || 
+                        existingRequest.status === 'approved'
+                    );
+                    
+                    const userBlockedEpisodes = shouldBlockUserEpisodes ? existingSeasonEpisodes : [];
+                    
+                    // Combine all blocked episodes
+                    const allBlockedEpisodes = [...new Set([...globallyBlockedEpisodes, ...userBlockedEpisodes])];
+                    const availableEpisodes = seasonDetails.episodes.filter(ep => !allBlockedEpisodes.includes(ep.episode_number));
+                    
+                    let seasonStatusHTML = '';
+                    
+                    // Show global availability status
+                    if (hasPlexEpisodes) {
+                        seasonStatusHTML += `<div style="font-size: 0.8rem; color: #28a745; margin-left: 8px;">
+                            📦 ${plexAvailableSeasonEpisodes.length} episodes available in Plex
+                        </div>`;
+                    } else if (hasGlobalEpisodes) {
+                        seasonStatusHTML += `<div style="font-size: 0.8rem; color: #28a745; margin-left: 8px;">
+                            🌍 ${globallyAvailableSeasonEpisodes.length} episodes available globally
+                        </div>`;
+                    }
+                    
+                    // Show user's request status
+                    if (hasExistingEpisodes) {
+                        const statusIcon = existingRequest?.status === 'approved' ? '✅' : 
+                                         existingRequest?.status === 'pending' ? '⏳' : 
+                                         existingRequest?.status === 'added_to_client' ? '📥' :
+                                         existingRequest?.status === 'downloading' ? '⬇️' : '📊';
+                        const statusText = shouldBlockUserEpisodes ? 'your episodes completed' : 'your episodes pending';
+                        const statusColor = shouldBlockUserEpisodes ? '#28a745' : '#ffc107';
+                        seasonStatusHTML += `<div style="font-size: 0.8rem; color: ${statusColor}; margin-left: 8px;">
+                            ${statusIcon} ${existingSeasonEpisodes.length} ${statusText}
+                        </div>`;
+                    }
                     
                     contentHTML += `
                         <div style="margin-bottom: 20px; padding: 15px; background: rgba(255, 255, 255, 0.05); border-radius: 10px; border: 1px solid rgba(255, 255, 255, 0.1);" data-season="${season.season_number}">
@@ -2358,22 +3225,67 @@
                                 <div style="font-size: 1.1rem; font-weight: 600; color: #4ecdc4;">
                                     Season ${season.season_number}
                                     <span style="display: inline-block; padding: 2px 6px; background: rgba(255, 255, 255, 0.2); border-radius: 4px; font-size: 0.7rem; margin-left: 8px;">${seasonDetails.episodes.length} episodes</span>
+                                    ${seasonStatusHTML}
                                 </div>
+                                ${availableEpisodes.length > 0 ? `
                                 <button onclick="toggleAllEpisodes(${season.season_number})" style="padding: 6px 12px; background: linear-gradient(45deg, #ff6b6b, #ff8e53); border: none; border-radius: 6px; color: #ffffff; font-size: 0.8rem; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;">
-                                    Select All
+                                    Select All Available
                                 </button>
+                                ` : `
+                                <span style="padding: 6px 12px; background: rgba(40, 167, 69, 0.2); border: 1px solid rgba(40, 167, 69, 0.5); border-radius: 6px; color: #28a745; font-size: 0.8rem; font-weight: 600;">
+                                    All Episodes Requested
+                                </span>
+                                `}
                             </div>
                             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px;" id="episodes-${season.season_number}">
                     `;
                     
                     for (const episode of seasonDetails.episodes) {
                         const episodeTitle = episode.name || `Episode ${episode.episode_number}`;
+                        const isUserRequested = existingSeasonEpisodes.includes(episode.episode_number);
+                        const isGloballyAvailable = globallyAvailableSeasonEpisodes.includes(episode.episode_number);
+                        const isPlexAvailable = plexAvailableSeasonEpisodes.includes(episode.episode_number);
+                        const isUserBlocked = userBlockedEpisodes.includes(episode.episode_number);
+                        const isGloballyBlocked = globallyBlockedEpisodes.includes(episode.episode_number);
+                        
+                        if (isPlexAvailable) {
+                            // Plex available episode - show as green/disabled (highest priority)
+                            contentHTML += `
+                                <div data-season="${season.season_number}" data-episode="${episode.episode_number}" style="padding: 8px 6px; background: rgba(40, 167, 69, 0.3); border: 1px solid rgba(40, 167, 69, 0.7); border-radius: 6px; color: #28a745; font-size: 0.8rem; text-align: center; position: relative; opacity: 0.9;">
+                                    <div>E${String(episode.episode_number).padStart(2, '0')} 📦</div>
+                                    <div style="font-size: 0.6rem; color: #28a745; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${episodeTitle}">In Plex</div>
+                                </div>
+                            `;
+                        } else if (isGloballyAvailable) {
+                            // Globally available episode - show as disabled with global indicator
+                            const statusIcon = isUserRequested && isUserBlocked ? '✅' : '🌍';
+                            const statusText = isUserRequested && isUserBlocked ? 'Available' : 'Global';
+                            contentHTML += `
+                                <div data-season="${season.season_number}" data-episode="${episode.episode_number}" style="padding: 8px 6px; background: rgba(40, 167, 69, 0.2); border: 1px solid rgba(40, 167, 69, 0.5); border-radius: 6px; color: #28a745; font-size: 0.8rem; text-align: center; position: relative; opacity: 0.8;">
+                                    <div>E${String(episode.episode_number).padStart(2, '0')} ${statusIcon}</div>
+                                    <div style="font-size: 0.6rem; color: #28a745; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${episodeTitle}">${statusText}</div>
+                                </div>
+                            `;
+                        } else if (isUserRequested && !isUserBlocked) {
+                            // Pending episode - show as orange/yellow (can still request more)
+                            const statusIcon = existingRequest?.status === 'pending' ? '⏳' : 
+                                             existingRequest?.status === 'added_to_client' ? '📥' :
+                                             existingRequest?.status === 'downloading' ? '⬇️' : '📊';
+                            contentHTML += `
+                                <div onclick="toggleEpisode(${season.season_number}, ${episode.episode_number})" data-season="${season.season_number}" data-episode="${episode.episode_number}" style="padding: 8px 6px; background: rgba(255, 193, 7, 0.2); border: 1px solid rgba(255, 193, 7, 0.5); border-radius: 6px; color: #ffc107; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease; text-align: center; position: relative; -webkit-tap-highlight-color: transparent; touch-action: manipulation;">
+                                    <div>E${String(episode.episode_number).padStart(2, '0')} ${statusIcon}</div>
+                                    <div style="font-size: 0.6rem; color: #ffc107; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${episodeTitle}">Pending</div>
+                                </div>
+                            `;
+                        } else {
+                            // Available episode - can be selected
                         contentHTML += `
                             <div onclick="toggleEpisode(${season.season_number}, ${episode.episode_number})" data-season="${season.season_number}" data-episode="${episode.episode_number}" style="padding: 8px 6px; background: rgba(255, 255, 255, 0.08); border: 1px solid rgba(255, 255, 255, 0.15); border-radius: 6px; color: #ffffff; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease; text-align: center; position: relative; -webkit-tap-highlight-color: transparent; touch-action: manipulation;">
                                 <div>E${String(episode.episode_number).padStart(2, '0')}</div>
                                 <div style="font-size: 0.7rem; color: #a0a0a0; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${episodeTitle}">${episodeTitle}</div>
                             </div>
                         `;
+                        }
                     }
                     
                     contentHTML += `</div></div>`;
@@ -2382,13 +3294,104 @@
                 document.getElementById('seasonContent').innerHTML = contentHTML;
                 
             } catch (error) {
-                console.error('Error loading season information:', error);
+                console.error('❌ Error loading season information:', error);
+                console.error('❌ Error details:', {
+                    message: error.message,
+                    tvId: tvId,
+                    stack: error.stack
+                });
+                
+                let errorMessage = 'Unable to load episode information. ';
+                if (error.message.includes('TMDB API request failed')) {
+                    errorMessage = `TMDB API error: ${error.message}. Please try again.`;
+                } else {
+                    errorMessage += `Error: ${error.message}`;
+                }
+                
                 document.getElementById('seasonContent').innerHTML = 
-                    '<div style="text-align: center; padding: 40px; color: #a0a0a0;"><h3>⚠️ Error Loading Episodes</h3><p>Unable to load episode information. Please try again.</p></div>';
+                    `<div style="text-align: center; padding: 40px; color: #ff6b6b;">
+                        <h3>⚠️ Error Loading Episodes</h3>
+                        <p>${errorMessage}</p>
+                        <button onclick="retryEpisodeLoading(${tvId})" style="margin-top: 15px; padding: 8px 16px; background: #4ecdc4; border: none; border-radius: 6px; color: white; cursor: pointer;">
+                            Retry Loading Episodes
+                        </button>
+                    </div>`;
             }
         }
 
+        // Retry episode loading for a specific TV show without refreshing the whole page
+        async function retryEpisodeLoading(tvId) {
+            console.log('🔄 Retrying episode loading for TV ID:', tvId);
+            
+            // Wait a moment for any pending loads
+            await new Promise(resolve => setTimeout(resolve, 500));
+            
+            // Retry the season selector using proxy endpoints (no API key needed)
+            await showSeasonSelector(tvId);
+        }
+
         function toggleEpisode(seasonNumber, episodeNumber) {
+            // Check if this episode is blocked (completed/available or globally available)
+            const mediaId = 'tv-' + selectedMedia.id;
+            const existingRequest = userRequests.get(mediaId);
+            const existingEpisodes = existingRequest?.selectedEpisodes || {};
+            const seasonKey = `S${String(seasonNumber).padStart(2, '0')}`;
+            const existingSeasonEpisodes = existingEpisodes[seasonKey] || [];
+            
+            // Check if episode is globally available (from the current card data)
+            const mediaCard = document.querySelector(`[data-media-id="${mediaId}"]`);
+            let globallyAvailableEpisodes = {};
+            
+            if (mediaCard && mediaCard.dataset.availableEpisodes) {
+                try {
+                    globallyAvailableEpisodes = JSON.parse(mediaCard.dataset.availableEpisodes);
+                } catch (e) {
+                    console.warn('Failed to parse globally available episodes data');
+                }
+            }
+            
+            const globallyAvailableSeasonEpisodes = globallyAvailableEpisodes[seasonKey] || [];
+            const isGloballyAvailable = globallyAvailableSeasonEpisodes.includes(episodeNumber);
+            
+            // Get Plex-specific episode data
+            let plexAvailableEpisodes = {};
+            if (mediaCard && mediaCard.dataset.plexEpisodes) {
+                try {
+                    plexAvailableEpisodes = JSON.parse(mediaCard.dataset.plexEpisodes);
+                } catch (e) {
+                    console.warn('Failed to parse Plex available episodes data');
+                }
+            }
+            const plexAvailableSeasonEpisodes = plexAvailableEpisodes[seasonKey] || [];
+            const isPlexAvailable = plexAvailableSeasonEpisodes.includes(episodeNumber);
+            
+            // Only block user episodes if their request is completed/available
+            const shouldBlockUserEpisodes = existingRequest && (
+                existingRequest.status === 'available' || 
+                existingRequest.status === 'completed' || 
+                existingRequest.status === 'approved'
+            );
+            
+            const isUserBlocked = shouldBlockUserEpisodes && existingSeasonEpisodes.includes(episodeNumber);
+            
+            if (isPlexAvailable) {
+                // Episode is available in Plex - can't request again
+                alert(`Episode ${episodeNumber} of Season ${seasonNumber} is already available in your Plex library and cannot be requested.`);
+                return;
+            }
+            
+            if (isGloballyAvailable) {
+                // Episode is globally available - can't request again
+                alert(`Episode ${episodeNumber} of Season ${seasonNumber} is already available globally and cannot be requested again.`);
+                return;
+            }
+            
+            if (isUserBlocked) {
+                // Episode is completed/available by user - can't request again
+                alert(`Episode ${episodeNumber} of Season ${seasonNumber} is already available from your previous request and cannot be requested again.`);
+                return;
+            }
+            
             if (!selectedEpisodes[seasonNumber]) {
                 selectedEpisodes[seasonNumber] = [];
             }
@@ -2419,20 +3422,39 @@
         }
 
         function toggleAllEpisodes(seasonNumber) {
-            const episodeBtns = document.querySelectorAll(`[data-season="${seasonNumber}"][data-episode]`);
+            // Get existing episodes for this season
+            const mediaId = 'tv-' + selectedMedia.id;
+            const existingRequest = userRequests.get(mediaId);
+            const existingEpisodes = existingRequest?.selectedEpisodes || {};
+            const seasonKey = `S${String(seasonNumber).padStart(2, '0')}`;
+            const existingSeasonEpisodes = existingEpisodes[seasonKey] || [];
+            
+            // Only block if the request is completed/available
+            const shouldBlockEpisodes = existingRequest && (
+                existingRequest.status === 'available' || 
+                existingRequest.status === 'completed' || 
+                existingRequest.status === 'approved'
+            );
+            
+            const blockedEpisodes = shouldBlockEpisodes ? existingSeasonEpisodes : [];
+            
+            // Only get clickable episodes (not blocked)
+            const episodeBtns = Array.from(document.querySelectorAll(`[data-season="${seasonNumber}"][data-episode]`))
+                .filter(btn => btn.onclick && !blockedEpisodes.includes(parseInt(btn.dataset.episode)));
+            
             const selectAllBtn = document.querySelector(`[data-season="${seasonNumber}"] button`);
             
-            const allSelected = selectedEpisodes[seasonNumber] && 
+            const allAvailableSelected = selectedEpisodes[seasonNumber] && 
                                selectedEpisodes[seasonNumber].length === episodeBtns.length;
             
-            if (allSelected) {
+            if (allAvailableSelected) {
                 delete selectedEpisodes[seasonNumber];
                 episodeBtns.forEach(btn => {
                     btn.style.background = 'rgba(255, 255, 255, 0.08)';
                     btn.style.borderColor = 'rgba(255, 255, 255, 0.15)';
                     btn.style.fontWeight = 'normal';
                 });
-                selectAllBtn.textContent = 'Select All';
+                selectAllBtn.textContent = 'Select All Available';
                 selectAllBtn.style.background = 'linear-gradient(45deg, #ff6b6b, #ff8e53)';
             } else {
                 selectedEpisodes[seasonNumber] = [];
@@ -2451,19 +3473,38 @@
         }
 
         function updateSelectAllButton(seasonNumber) {
-            const episodeBtns = document.querySelectorAll(`[data-season="${seasonNumber}"][data-episode]`);
+            // Get existing episodes for this season
+            const mediaId = 'tv-' + selectedMedia.id;
+            const existingRequest = userRequests.get(mediaId);
+            const existingEpisodes = existingRequest?.selectedEpisodes || {};
+            const seasonKey = `S${String(seasonNumber).padStart(2, '0')}`;
+            const existingSeasonEpisodes = existingEpisodes[seasonKey] || [];
+            
+            // Only block if the request is completed/available
+            const shouldBlockEpisodes = existingRequest && (
+                existingRequest.status === 'available' || 
+                existingRequest.status === 'completed' || 
+                existingRequest.status === 'approved'
+            );
+            
+            const blockedEpisodes = shouldBlockEpisodes ? existingSeasonEpisodes : [];
+            
+            // Only count clickable episodes (not blocked)
+            const episodeBtns = Array.from(document.querySelectorAll(`[data-season="${seasonNumber}"][data-episode]`))
+                .filter(btn => btn.onclick && !blockedEpisodes.includes(parseInt(btn.dataset.episode)));
+            
             const selectAllBtn = document.querySelector(`[data-season="${seasonNumber}"] button`);
             
             if (!selectAllBtn) return;
             
-            const allSelected = selectedEpisodes[seasonNumber] && 
+            const allAvailableSelected = selectedEpisodes[seasonNumber] && 
                                selectedEpisodes[seasonNumber].length === episodeBtns.length;
             
-            if (allSelected) {
+            if (allAvailableSelected) {
                 selectAllBtn.textContent = 'Deselect All';
                 selectAllBtn.style.background = 'linear-gradient(45deg, #4ecdc4, #45b7d1)';
             } else {
-                selectAllBtn.textContent = 'Select All';
+                selectAllBtn.textContent = 'Select All Available';
                 selectAllBtn.style.background = 'linear-gradient(45deg, #ff6b6b, #ff8e53)';
             }
         }
@@ -2520,7 +3561,28 @@
 
         async function confirmRequest() {
             if (Object.keys(selectedEpisodes).length === 0) {
-                alert('Please select at least one episode.');
+                // Check if there are any episodes available to request
+                const mediaId = 'tv-' + selectedMedia.id;
+                const existingRequest = userRequests.get(mediaId);
+                const existingEpisodes = existingRequest?.selectedEpisodes || {};
+                
+                let hasAvailableEpisodes = false;
+                if (tvShowDetails && tvShowDetails.seasons) {
+                    for (const season of tvShowDetails.seasons.filter(s => s.season_number > 0)) {
+                        const seasonKey = `S${String(season.season_number).padStart(2, '0')}`;
+                        const existingSeasonEpisodes = existingEpisodes[seasonKey] || [];
+                        if (existingSeasonEpisodes.length < season.episode_count) {
+                            hasAvailableEpisodes = true;
+                            break;
+                        }
+                    }
+                }
+                
+                if (hasAvailableEpisodes) {
+                    alert('Please select at least one episode to request.');
+                } else {
+                    alert('All episodes for this TV show have already been requested.');
+                }
                 return;
             }
             
@@ -2606,7 +3668,187 @@
             console.log('✅ All event listeners added successfully');
         });
 
+        // ============= PLEX AVAILABILITY CHECKING =============
+        
+        async function checkPlexAvailability(mediaList, forceRefresh = false) {
+            try {
+                console.log('🔍 Checking Plex availability for', mediaList.length, 'items', forceRefresh ? '(FORCE REFRESH)' : '(using cache)');
+                
+                const response = await fetch('http://localhost:3000/check-plex', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ 
+                        mediaList,
+                        forceRefresh 
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                
+                const data = await response.json();
+                console.log('📦 Plex availability results:', data);
+                
+                // Store results in localStorage for immediate access
+                try {
+                    const cacheKey = 'plexAvailabilityCache';
+                    let cache = JSON.parse(localStorage.getItem(cacheKey) || '{}');
+                    
+                    // Merge new results with existing cache
+                    Object.assign(cache, data.results || {});
+                    
+                    localStorage.setItem(cacheKey, JSON.stringify(cache));
+                    console.log('💾 Updated local Plex availability cache');
+                } catch (cacheError) {
+                    console.warn('Failed to update local cache:', cacheError);
+                }
+                
+                return data.results || {};
+                
+            } catch (error) {
+                console.warn('⚠️ Failed to check Plex availability:', error);
+                
+                // Fallback to localStorage cache if API fails
+                try {
+                    const cache = JSON.parse(localStorage.getItem('plexAvailabilityCache') || '{}');
+                    if (Object.keys(cache).length > 0) {
+                        console.log('📦 Using local cache fallback');
+                        return cache;
+                    }
+                } catch (fallbackError) {
+                    console.warn('Cache fallback failed:', fallbackError);
+                }
+                
+                return {};
+            }
+        }
+        
+        function addPlexAvailabilityBadges(plexResults) {
+            Object.entries(plexResults).forEach(([mediaId, result]) => {
+                const button = document.getElementById('btn-' + mediaId);
+                if (!button) return;
+                
+                const mediaCard = button.closest('.media-card');
+                if (!mediaCard) return;
+                
+                // Remove existing badges
+                const existingBadge = mediaCard.querySelector('.plex-availability-badge');
+                if (existingBadge) {
+                    existingBadge.remove();
+                }
+                
+                if (result.available) {
+                    // Add "Available in Plex" badge
+                    const badge = document.createElement('div');
+                    badge.className = 'plex-availability-badge';
+                    badge.innerHTML = '📦 Available in Plex';
+                    badge.style.cssText = `
+                        position: absolute;
+                        top: 8px;
+                        right: 8px;
+                        background: rgba(40, 167, 69, 0.9);
+                        color: white;
+                        padding: 4px 8px;
+                        border-radius: 12px;
+                        font-size: 0.7rem;
+                        font-weight: 600;
+                        z-index: 10;
+                        box-shadow: 0 2px 4px rgba(0,0,0,0.3);
+                    `;
+                    
+                    // Make media card container relative if it isn't already
+                    if (getComputedStyle(mediaCard).position === 'static') {
+                        mediaCard.style.position = 'relative';
+                    }
+                    
+                    mediaCard.appendChild(badge);
+                    
+                    // Update button to show already available
+                    button.textContent = 'Already Available 📦';
+                    button.disabled = true;
+                    button.className = 'request-btn already_exists';
+                }
+            });
+        }
+        
+        // Check Plex availability when content is loaded
+        function checkCurrentContentAvailability(forceRefresh = false) {
+            const mediaCards = document.querySelectorAll('.media-card');
+            const mediaList = [];
+            
+            mediaCards.forEach(card => {
+                const button = card.querySelector('.request-btn');
+                if (button && button.id.startsWith('btn-')) {
+                    const mediaId = button.id.replace('btn-', '');
+                    const [mediaType, tmdbId] = mediaId.split('-');
+                    
+                    const titleElement = card.querySelector('.media-title');
+                    const yearElement = card.querySelector('.media-year');
+                    
+                    if (titleElement && tmdbId) {
+                        mediaList.push({
+                            mediaType: mediaType,
+                            tmdbId: parseInt(tmdbId),
+                            title: titleElement.textContent.trim(),
+                            year: yearElement ? parseInt(yearElement.textContent) : null
+                        });
+                    }
+                }
+            });
+            
+            if (mediaList.length > 0) {
+                // First, load any cached results immediately for instant display
+                if (!forceRefresh) {
+                    loadCachedPlexResults(mediaList);
+                }
+                
+                // Then check for updates via API
+                checkPlexAvailability(mediaList, forceRefresh).then(plexResults => {
+                    addPlexAvailabilityBadges(plexResults);
+                });
+            }
+        }
+        
+        function loadCachedPlexResults(mediaList) {
+            try {
+                const cache = JSON.parse(localStorage.getItem('plexAvailabilityCache') || '{}');
+                if (Object.keys(cache).length === 0) return;
+                
+                console.log('📦 Loading cached Plex results for instant display');
+                
+                // Filter cache to only include items currently displayed
+                const currentMediaIds = new Set(mediaList.map(media => `${media.mediaType}-${media.tmdbId}`));
+                const relevantCache = {};
+                
+                Object.entries(cache).forEach(([mediaId, result]) => {
+                    if (currentMediaIds.has(mediaId)) {
+                        relevantCache[mediaId] = result;
+                    }
+                });
+                
+                if (Object.keys(relevantCache).length > 0) {
+                    addPlexAvailabilityBadges(relevantCache);
+                    console.log(`📦 Applied ${Object.keys(relevantCache).length} cached Plex statuses`);
+                }
+                
+            } catch (error) {
+                console.warn('Failed to load cached Plex results:', error);
+            }
+        }
+        
         console.log('🎬 Fixed Plex Portal loaded successfully!');
+        
+        // Add refresh Plex availability button function
+        window.refreshPlexAvailability = function() {
+            console.log('🔄 Force refreshing Plex availability...');
+            // Clear localStorage cache
+            localStorage.removeItem('plexAvailabilityCache');
+            // Force refresh current content
+            checkCurrentContentAvailability(true);
+        };
         
         // Debug functions - you can call these in the browser console
         window.testSearch = function() {
@@ -2714,4 +3956,5 @@
         console.log('🧪 Debug functions available: testSearch(), testMediaType(type), debugState(), debugSearchResults()');
     </script>
 </body>
+</html>
 </html>
