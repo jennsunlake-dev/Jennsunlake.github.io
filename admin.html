@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notflix Admin Dashboard</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: #ffffff;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .header {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 20px;
+            backdrop-filter: blur(10px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            color: #a0a0a0;
+            font-size: 1.1rem;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 30px 20px;
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+
+        .stat-card {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+        }
+
+        .stat-card .icon {
+            font-size: 1.8rem;
+            margin-bottom: 8px;
+            opacity: 0.8;
+        }
+
+        .stat-card .value {
+            font-size: 1.6rem;
+            font-weight: 700;
+            margin-bottom: 3px;
+            transition: all 0.3s ease;
+        }
+
+        .stat-card .label {
+            color: #a0a0a0;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .charts-section {
+            margin-bottom: 30px;
+        }
+
+        .charts-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        @media (max-width: 1400px) {
+            .charts-grid {
+                grid-template-columns: repeat(2, 1fr) !important;
+                gap: 15px !important;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .charts-grid {
+                grid-template-columns: 1fr !important;
+                gap: 15px !important;
+            }
+        }
+
+        .chart-container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            height: 280px; /* Fixed height for consistency */
+        }
+
+        .chart-title {
+            font-size: 1.1rem;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #ffffff;
+        }
+
+        .activity-section {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 12px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            margin-bottom: 20px;
+        }
+
+        .section-title {
+            font-size: 1.6rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .activity-log {
+            max-height: 250px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255, 255, 255, 0.3) transparent;
+        }
+
+        .activity-log::-webkit-scrollbar {
+            width: 6px;
+        }
+
+        .activity-log::-webkit-scrollbar-track {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 3px;
+        }
+
+        .activity-log::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.3);
+            border-radius: 3px;
+        }
+
+        .activity-item {
+            padding: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .activity-item:last-child {
+            border-bottom: none;
+        }
+
+        .activity-icon {
+            font-size: 1.2rem;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .activity-icon.plex { background: rgba(255, 165, 0, 0.2); color: #ffa500; }
+        .activity-icon.request { background: rgba(64, 224, 208, 0.2); color: #40e0d0; }
+        .activity-icon.error { background: rgba(255, 107, 107, 0.2); color: #ff6b6b; }
+        .activity-icon.success { background: rgba(40, 167, 69, 0.2); color: #28a745; }
+
+        .activity-content {
+            flex: 1;
+        }
+
+        .activity-title {
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .activity-details {
+            color: #a0a0a0;
+            font-size: 0.9rem;
+        }
+
+        .activity-time {
+            color: #888;
+            font-size: 0.8rem;
+            white-space: nowrap;
+        }
+
+        .user-table {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            overflow: hidden;
+        }
+
+        .table-header {
+            background: rgba(0, 0, 0, 0.2);
+            padding: 20px;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+            gap: 15px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-size: 0.9rem;
+        }
+
+        .table-row {
+            padding: 15px 20px;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr 1fr 1fr;
+            gap: 15px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            align-items: center;
+            transition: background 0.2s ease;
+        }
+
+        .table-row:hover {
+            background: rgba(255, 255, 255, 0.05);
+        }
+
+        .table-row:last-child {
+            border-bottom: none;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-avatar {
+            width: 35px;
+            height: 35px;
+            border-radius: 50%;
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .user-details {
+            flex: 1;
+        }
+
+        .user-name {
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+
+        .user-email {
+            color: #a0a0a0;
+            font-size: 0.8rem;
+        }
+
+        .tier-badge {
+            padding: 4px 8px;
+            border-radius: 12px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .tier-vip {
+            background: linear-gradient(45deg, #ffd700, #ffed4e);
+            color: #000;
+        }
+
+        .tier-standard {
+            background: rgba(255, 255, 255, 0.2);
+            color: #fff;
+        }
+
+        .cost-amount {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .cost-high { color: #ff6b6b; }
+        .cost-medium { color: #ffa500; }
+        .cost-low { color: #28a745; }
+
+        .controls {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .control-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+            font-weight: 600;
+        }
+
+        .control-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        .control-btn.active {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            border-color: transparent;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #a0a0a0;
+        }
+
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid rgba(255, 255, 255, 0.1);
+            border-left: 4px solid #4ecdc4;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .refresh-indicator {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            padding: 10px 15px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .refresh-indicator.show {
+            opacity: 1;
+        }
+
+        .live-indicator {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(40, 167, 69, 0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            z-index: 1000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .live-dot {
+            width: 8px;
+            height: 8px;
+            background: #ffffff;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="container">
+            <h1>🎬 Notflix Admin Dashboard</h1>
+            <p>Real-time monitoring and analytics for your media request system</p>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Controls -->
+        <div class="controls">
+            <button class="control-btn active" onclick="setTimeRange('24h')" id="btn-24h">Last 24 Hours</button>
+            <button class="control-btn" onclick="setTimeRange('7d')" id="btn-7d">Last 7 Days</button>
+            <button class="control-btn" onclick="setTimeRange('30d')" id="btn-30d">Last 30 Days</button>
+            <button class="control-btn" onclick="refreshData()">🔄 Refresh Data</button>
+            <button class="control-btn" onclick="exportData()">📊 Export CSV</button>
+            <button class="control-btn" onclick="window.location.href='/'" style="background: rgba(78, 205, 196, 0.2); border-color: rgba(78, 205, 196, 0.5);">🏠 Main Site</button>
+        </div>
+
+        <!-- Stats Overview -->
+        <div class="stats-grid">
+            <div class="stat-card">
+                <div class="icon">📊</div>
+                <div class="value" id="total-requests">-</div>
+                <div class="label">Total Requests</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">👥</div>
+                <div class="value" id="active-users">-</div>
+                <div class="label">Active Users</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">🔄</div>
+                <div class="value" id="plex-refreshes">-</div>
+                <div class="label">Plex Refreshes</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">💰</div>
+                <div class="value" id="total-cost">$-</div>
+                <div class="label">Total API Cost</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">⚡</div>
+                <div class="value" id="api-calls">-</div>
+                <div class="label">API Calls</div>
+            </div>
+            <div class="stat-card">
+                <div class="icon">✅</div>
+                <div class="value" id="success-rate">-%</div>
+                <div class="label">Success Rate</div>
+            </div>
+        </div>
+
+        <!-- Charts -->
+        <div class="charts-section">
+            <div class="charts-grid" style="grid-template-columns: repeat(4, 1fr); gap: 10px;">
+                <div class="chart-container">
+                    <div class="chart-title">📈 Requests</div>
+                    <canvas id="requestsChart" width="300" height="180"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">🏆 Top Users</div>
+                    <canvas id="usersChart" width="300" height="180"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">💰 API Costs</div>
+                    <canvas id="costChart" width="300" height="180"></canvas>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title">🔄 Plex Activity</div>
+                    <canvas id="plexChart" width="300" height="180"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Activity -->
+        <div class="activity-section">
+            <div class="section-title">
+                <span>⚡</span>
+                <span>Recent Activity</span>
+            </div>
+            <div class="activity-log" id="activity-log">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Loading recent activity...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- User Analysis Table -->
+        <div class="activity-section">
+            <div class="section-title">
+                <span>👥</span>
+                <span>User Analysis & Cost Breakdown</span>
+            </div>
+            <div class="user-table">
+                <div class="table-header">
+                    <div>User</div>
+                    <div>Tier</div>
+                    <div>Requests</div>
+                    <div>API Calls</div>
+                    <div>Cost</div>
+                </div>
+                <div id="user-table-body">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p>Loading user data...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Refresh Indicator -->
+    <div class="refresh-indicator" id="refresh-indicator">
+        🔄 Refreshing data...
+    </div>
+
+    <!-- Live Data Indicator -->
+    <div class="live-indicator">
+        <div class="live-dot"></div>
+        <span>Live Data</span>
+    </div>
+
+    <script>
+        let currentTimeRange = '24h';
+        let charts = {};
+        let refreshInterval;
+
+        // Initialize dashboard
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('Admin dashboard loading...');
+            
+            // No authentication needed - Discord-based access control
+            initializeCharts();
+            loadDashboardData();
+            startAutoRefresh();
+        });
+
+        function setTimeRange(range) {
+            currentTimeRange = range;
+            
+            // Update button states
+            document.querySelectorAll('.control-btn').forEach(btn => btn.classList.remove('active'));
+            document.getElementById(`btn-${range}`).classList.add('active');
+            
+            loadDashboardData();
+        }
+
+        function showRefreshIndicator() {
+            const indicator = document.getElementById('refresh-indicator');
+            indicator.classList.add('show');
+            setTimeout(() => indicator.classList.remove('show'), 2000);
+        }
+
+        function refreshData() {
+            showRefreshIndicator();
+            loadDashboardData();
+        }
+
+        function startAutoRefresh() {
+            // Refresh every 5 seconds for live data
+            refreshInterval = setInterval(() => {
+                loadDashboardData(true); // Silent refresh
+            }, 5000);
+        }
+
+        async function loadDashboardData(silent = false) {
+            if (!silent) showRefreshIndicator();
+            
+            try {
+                console.log('Loading dashboard data...');
+                
+                // Load all dashboard data (no authentication needed)
+                const backendUrl = 'https://your-backend-domain.com'; // TODO: Update with actual backend URL
+                const [stats, activity, users, chartData] = await Promise.all([
+                    fetch(`${backendUrl}/api/admin/stats?range=${currentTimeRange}`).then(async r => {
+                        if (!r.ok) {
+                            const error = await r.text();
+                            throw new Error(`Stats API failed: ${r.status} - ${error}`);
+                        }
+                        return r.json();
+                    }),
+                    fetch(`${backendUrl}/api/admin/activity?range=${currentTimeRange}`).then(async r => {
+                        if (!r.ok) {
+                            const error = await r.text();
+                            throw new Error(`Activity API failed: ${r.status} - ${error}`);
+                        }
+                        return r.json();
+                    }),
+                    fetch(`${backendUrl}/api/admin/users?range=${currentTimeRange}`).then(async r => {
+                        if (!r.ok) {
+                            const error = await r.text();
+                            throw new Error(`Users API failed: ${r.status} - ${error}`);
+                        }
+                        return r.json();
+                    }),
+                    fetch(`${backendUrl}/api/admin/chart-data?range=${currentTimeRange}`).then(async r => {
+                        if (!r.ok) {
+                            const error = await r.text();
+                            throw new Error(`Chart data API failed: ${r.status} - ${error}`);
+                        }
+                        return r.json();
+                    })
+                ]);
+
+                updateStats(stats);
+                updateActivity(activity);
+                updateUserTable(users);
+                updateCharts(chartData);
+                
+            } catch (error) {
+                console.error('Error loading dashboard data:', error);
+                
+                // Show error in activity log
+                const activityLog = document.getElementById('activity-log');
+                activityLog.innerHTML = `
+                    <div class="activity-item">
+                        <div class="activity-icon error">❌</div>
+                        <div class="activity-content">
+                            <div class="activity-title">Dashboard Error</div>
+                            <div class="activity-details">Failed to load data: ${error.message}</div>
+                        </div>
+                        <div class="activity-time">${new Date().toLocaleTimeString()}</div>
+                    </div>
+                `;
+            }
+        }
+
+        function updateStats(stats) {
+            animateValue('total-requests', stats.totalRequests || 0);
+            animateValue('active-users', stats.activeUsers || 0);
+            animateValue('plex-refreshes', stats.plexRefreshes || 0);
+            animateValue('total-cost', `$${(stats.totalCost || 0).toFixed(2)}`);
+            animateValue('api-calls', stats.apiCalls || 0);
+            animateValue('success-rate', `${(stats.successRate || 0).toFixed(1)}%`);
+        }
+
+        function animateValue(elementId, newValue) {
+            const element = document.getElementById(elementId);
+            const currentValue = element.textContent;
+            
+            if (currentValue !== newValue.toString()) {
+                element.style.transform = 'scale(1.1)';
+                element.style.color = '#4ecdc4';
+                
+                setTimeout(() => {
+                    element.textContent = newValue;
+                    setTimeout(() => {
+                        element.style.transform = 'scale(1)';
+                        element.style.color = '';
+                    }, 150);
+                }, 150);
+            }
+        }
+
+        function updateActivity(activities) {
+            const activityLog = document.getElementById('activity-log');
+            
+            if (!activities || activities.length === 0) {
+                activityLog.innerHTML = '<div class="loading"><p>No recent activity</p></div>';
+                return;
+            }
+
+            activityLog.innerHTML = activities.map(activity => `
+                <div class="activity-item">
+                    <div class="activity-icon ${activity.type}">
+                        ${getActivityIcon(activity.type)}
+                    </div>
+                    <div class="activity-content">
+                        <div class="activity-title">${activity.title}</div>
+                        <div class="activity-details">${activity.details}</div>
+                    </div>
+                    <div class="activity-time">${formatTime(activity.timestamp)}</div>
+                </div>
+            `).join('');
+        }
+
+        function updateUserTable(users) {
+            const tableBody = document.getElementById('user-table-body');
+            
+            if (!users || users.length === 0) {
+                tableBody.innerHTML = '<div class="loading"><p>No user data available</p></div>';
+                return;
+            }
+
+            tableBody.innerHTML = users.map(user => `
+                <div class="table-row">
+                    <div class="user-info">
+                        <div class="user-avatar">${getUserInitials(user.name || user.email)}</div>
+                        <div class="user-details">
+                            <div class="user-name">${user.name || 'Unknown'}</div>
+                            <div class="user-email">${user.email}</div>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="tier-badge ${user.tier?.toLowerCase() || 'standard'}">
+                            ${user.tier || 'Standard'}
+                        </span>
+                    </div>
+                    <div>${user.requestCount || 0}</div>
+                    <div>${user.apiCalls || 0}</div>
+                    <div class="cost-amount ${getCostClass(user.cost || 0)}">
+                        $${(user.cost || 0).toFixed(2)}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function initializeCharts() {
+            const chartConfig = {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        labels: { color: '#ffffff' }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: '#ffffff' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    },
+                    y: {
+                        ticks: { color: '#ffffff' },
+                        grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    }
+                }
+            };
+
+            // Requests over time chart
+            charts.requests = new Chart(document.getElementById('requestsChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: chartConfig
+            });
+
+            // Top users chart
+            charts.users = new Chart(document.getElementById('usersChart'), {
+                type: 'bar',
+                data: { labels: [], datasets: [] },
+                options: chartConfig
+            });
+
+            // Cost distribution chart
+            charts.cost = new Chart(document.getElementById('costChart'), {
+                type: 'doughnut',
+                data: { labels: [], datasets: [] },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            labels: { color: '#ffffff' }
+                        }
+                    }
+                }
+            });
+
+            // Plex activity chart
+            charts.plex = new Chart(document.getElementById('plexChart'), {
+                type: 'line',
+                data: { labels: [], datasets: [] },
+                options: chartConfig
+            });
+        }
+
+        function updateCharts(data) {
+            // Update requests chart
+            charts.requests.data = {
+                labels: data.requests?.labels || [],
+                datasets: [{
+                    label: 'Requests',
+                    data: data.requests?.data || [],
+                    borderColor: '#4ecdc4',
+                    backgroundColor: 'rgba(78, 205, 196, 0.1)',
+                    tension: 0.4
+                }]
+            };
+            charts.requests.update();
+
+            // Update users chart
+            charts.users.data = {
+                labels: data.users?.labels || [],
+                datasets: [{
+                    label: 'Requests',
+                    data: data.users?.data || [],
+                    backgroundColor: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3']
+                }]
+            };
+            charts.users.update();
+
+            // Update cost chart
+            charts.cost.data = {
+                labels: data.cost?.labels || [],
+                datasets: [{
+                    data: data.cost?.data || [],
+                    backgroundColor: ['#ff6b6b', '#4ecdc4', '#45b7d1', '#96ceb4', '#feca57', '#ff9ff3']
+                }]
+            };
+            charts.cost.update();
+
+            // Update Plex chart
+            charts.plex.data = {
+                labels: data.plex?.labels || [],
+                datasets: [{
+                    label: 'Plex Refreshes',
+                    data: data.plex?.data || [],
+                    borderColor: '#ffa500',
+                    backgroundColor: 'rgba(255, 165, 0, 0.1)',
+                    tension: 0.4
+                }]
+            };
+            charts.plex.update();
+        }
+
+        function getActivityIcon(type) {
+            const icons = {
+                plex: '📦',
+                request: '📝',
+                error: '❌',
+                success: '✅',
+                download: '⬇️',
+                api: '🔗'
+            };
+            return icons[type] || '📊';
+        }
+
+        function formatTime(timestamp) {
+            return new Date(timestamp).toLocaleTimeString();
+        }
+
+        function getUserInitials(name) {
+            return name.split(' ').map(n => n[0]).join('').toUpperCase().substring(0, 2);
+        }
+
+        function getCostClass(cost) {
+            if (cost > 5) return 'cost-high';
+            if (cost > 1) return 'cost-medium';
+            return 'cost-low';
+        }
+
+        function exportData() {
+            // This will be implemented when backend endpoints are ready
+            alert('Export functionality will be available once backend endpoints are implemented!');
+        }
+
+        async function logout() {
+            const token = localStorage.getItem('notflix_admin_token');
+            
+            if (token) {
+                try {
+                    await fetch('/api/admin/logout', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${token}`,
+                            'Content-Type': 'application/json'
+                        }
+                    });
+                } catch (error) {
+                    console.error('Logout error:', error);
+                }
+            }
+            
+            localStorage.removeItem('notflix_admin_token');
+            window.location.href = '/admin/login';
+        }
+
+        function addLogoutButton() {
+            // Logout button is already added in HTML
+        }
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (refreshInterval) clearInterval(refreshInterval);
+        });
+    </script>
+</body>
+</html>
