@@ -1473,13 +1473,15 @@
                 
                 // Path 3: Check Discord automation system for authorized emails (with timeout)
                 if (!userData) {
-                    try {
-                        console.log('🤖 Checking Discord automation system...');
-                        // Add timeout to prevent hanging
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
-                        
-                        const response = await fetch('http://localhost:3000/check-user', {
+                    // Only check local automation if on localhost
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        try {
+                            console.log('🤖 Checking Discord automation system...');
+                            // Add timeout to prevent hanging
+                            const controller = new AbortController();
+                            const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+                            
+                            const response = await fetch('http://localhost:3000/check-user', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -1502,8 +1504,11 @@
                                 };
                             }
                         }
-                    } catch (error) {
-                        console.log('⚠️ Discord system check failed (using fallback):', error.message);
+                                            } catch (error) {
+                            console.log('⚠️ Discord system check failed (using fallback):', error.message);
+                        }
+                    } else {
+                        console.log('🌐 Live site - skipping local Discord automation check');
                     }
                 }
                 
@@ -3723,6 +3728,12 @@
         
         async function checkPlexAvailability(mediaList, forceRefresh = false) {
             try {
+                // Skip Plex checking on live site to avoid CORS errors
+                if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                    console.log('🌐 Live site - skipping Plex availability check');
+                    return {};
+                }
+                
                 console.log('🔍 Checking Plex availability for', mediaList.length, 'items', forceRefresh ? '(FORCE REFRESH)' : '(using cache)');
                 
                 const response = await fetch('http://localhost:3000/check-plex', {
