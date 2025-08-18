@@ -124,18 +124,34 @@
         let firebaseApp, auth;
         
         window.apiClient.getConfig().then(config => {
-            firebaseApp = initializeApp(config.firebase);
-            auth = getAuth(firebaseApp);
-            window.firebaseApp = firebaseApp;
-            window.auth = auth;
+            console.log('🔧 Backend config received:', config);
+            
+            // Check if Firebase config is valid
+            if (config.firebase && config.firebase.apiKey) {
+                try {
+                    firebaseApp = initializeApp(config.firebase);
+                    auth = getAuth(firebaseApp);
+                    window.firebaseApp = firebaseApp;
+                    window.auth = auth;
+                    console.log('🔥 Firebase initialized securely via backend');
+                } catch (firebaseError) {
+                    console.error('❌ Firebase initialization failed:', firebaseError);
+                    console.log('⚠️ Continuing without Firebase (will use defaults)');
+                }
+            } else {
+                console.warn('⚠️ Invalid Firebase config from backend, continuing without Firebase');
+            }
+            
             window.tmdbApiKey = config.tmdbApiKey;
-            console.log('🔥 Firebase initialized securely via backend');
             console.log('🎬 TMDB API key loaded:', config.tmdbApiKey ? 'YES' : 'NO');
             
             // Load popular content AFTER config is loaded
             loadPopularContent();
         }).catch(error => {
-            console.error('Failed to initialize Firebase:', error);
+            console.error('❌ Failed to get backend config:', error);
+            console.log('⚠️ Continuing with defaults - popular content may not load');
+            // Still try to load popular content with proxy
+            loadPopularContent();
         });
 
         // Expose necessary Firebase functions
@@ -1602,9 +1618,10 @@
             try {
                 if (!window.db || !currentUser) {
                     console.warn('⚠️ No Firebase DB or currentUser available, using defaults');
-                    userTier = currentUser?.tier || 'VIP'; // Default VIP for testing
+                    userTier = 'VIP'; // Always default to VIP when Firebase isn't available
                     weeklyLimit = USER_TIERS[userTier].requests;
                     userRequestCount = 0;
+                    console.log('📊 Using default user data:', { userTier, weeklyLimit, userRequestCount });
                     updateUserInfoDisplay();
                     return;
                 }
