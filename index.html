@@ -60,9 +60,45 @@
 
             async getGlobalAvailability(tmdbId, type) {
                 try {
+                    // First try to get Plex availability from local automation
+                    let plexAvailability = null;
+                    try {
+                        const localResponse = await fetch(`http://localhost:3000/check-plex`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                mediaList: [{
+                                    tmdbId: parseInt(tmdbId),
+                                    title: 'Unknown', // Will be looked up by automation
+                                    mediaType: type,
+                                    year: null
+                                }]
+                            })
+                        });
+                        
+                        if (localResponse.ok) {
+                            const localData = await localResponse.json();
+                            const mediaKey = `${type}-${tmdbId}`;
+                            plexAvailability = localData.results?.[mediaKey];
+                            console.log('🎬 Local Plex check result:', plexAvailability);
+                        }
+                    } catch (localError) {
+                        console.log('⚠️ Local automation not reachable, using Vercel backend only');
+                    }
+                    
+                    // Always get Firebase request data from Vercel backend
                     const response = await fetch(`${this.baseUrl}/api/availability/${tmdbId}?type=${type}`);
                     if (!response.ok) throw new Error('Failed to fetch global availability');
-                    return await response.json();
+                    const backendData = await response.json();
+                    
+                    // Combine Plex data with backend data
+                    return {
+                        ...backendData,
+                        plexAvailable: plexAvailability?.available || false,
+                        plexLocation: plexAvailability?.location || null,
+                        plexEpisodes: plexAvailability?.availableEpisodes || {},
+                        localPlexCheck: !!plexAvailability
+                    };
                 } catch (error) {
                     console.error('Global availability error:', error);
                     throw error;
