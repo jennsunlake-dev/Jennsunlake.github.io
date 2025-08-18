@@ -1871,13 +1871,7 @@
                 let allResults = [];
                 
                 console.log('🔍 Current media type:', currentMediaType);
-                console.log('🔍 TMDB API Key present:', !!window.tmdbApiKey);
-                console.log('🔍 TMDB Base URL:', TMDB_BASE_URL);
-                
-                // Check if TMDB API key is available
-                if (!window.tmdbApiKey) {
-                    throw new Error('TMDB API key not loaded yet. Please wait for backend initialization.');
-                }
+                console.log('🔍 Using backend proxy for search - no API key needed');
                 
                 if (currentMediaType === 'multi') {
                     console.log('🎭 Searching both movies and TV shows via backend proxy');
@@ -2003,20 +1997,9 @@
             console.log('✅ Content sections filtered for:', type);
         }
 
-        // Enhanced content loading with API key check
+        // Enhanced content loading using backend proxy (no API key needed)
         async function loadPopularContent() {
-            console.log('🎬 Loading popular content...');
-            console.log('🔑 TMDB API key available:', !!window.tmdbApiKey);
-            console.log('🔑 TMDB API key value:', window.tmdbApiKey);
-            
-            if (!window.tmdbApiKey) {
-                console.error('❌ TMDB API key not available. Cannot load content.');
-                document.getElementById('popularMovies').innerHTML = '<div class="no-results"><h3>⚠️ Configuration Error</h3><p>TMDB API key not loaded.</p></div>';
-                document.getElementById('popularTVShows').innerHTML = '<div class="no-results"><h3>⚠️ Configuration Error</h3><p>TMDB API key not loaded.</p></div>';
-                return;
-            }
-            
-            console.log('✅ TMDB API key available, fetching popular content...');
+            console.log('🎬 Loading popular content via backend proxy...');
             
             try {
                 await Promise.all([
@@ -2026,19 +2009,14 @@
                 console.log('✅ Popular content loaded successfully');
             } catch (error) {
                 console.error('❌ Error loading popular content:', error);
+                document.getElementById('popularMovies').innerHTML = '<div class="no-results"><h3>⚠️ Loading Error</h3><p>Please refresh the page.</p></div>';
+                document.getElementById('popularTVShows').innerHTML = '<div class="no-results"><h3>⚠️ Loading Error</h3><p>Please refresh the page.</p></div>';
             }
         }
 
         async function loadPopularMovies() {
             const moviesDiv = document.getElementById('popularMovies');
             moviesDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading popular movies...</p></div>';
-            
-            // Check if API key is available
-            if (!window.tmdbApiKey) {
-                console.error('❌ TMDB API key not available for loadPopularMovies');
-                moviesDiv.innerHTML = '<div class="error">Unable to load movies. Please refresh the page.</div>';
-                return;
-            }
             
             try {
                 console.log('🎬 Fetching popular movies via backend proxy...');
@@ -2075,13 +2053,6 @@
         async function loadPopularTVShows() {
             const tvDiv = document.getElementById('popularTVShows');
             tvDiv.innerHTML = '<div class="loading"><div class="spinner"></div><p>Loading popular TV shows...</p></div>';
-            
-            // Check if API key is available
-            if (!window.tmdbApiKey) {
-                console.error('❌ TMDB API key not available for loadPopularTVShows');
-                tvDiv.innerHTML = '<div class="error">Unable to load TV shows. Please refresh the page.</div>';
-                return;
-            }
             
             try {
                 console.log('📺 Fetching popular TV shows via backend proxy...');
