@@ -127,6 +127,30 @@
                 }
             }
 
+            // Get global request statuses for all users
+            async getGlobalStatuses() {
+                try {
+                    const response = await fetch(`${this.baseUrl}/api/global-statuses`);
+                    if (!response.ok) throw new Error('Failed to fetch global statuses');
+                    return await response.json();
+                } catch (error) {
+                    console.error('Global statuses error:', error);
+                    throw error;
+                }
+            }
+
+            // Get global Plex availability for all content
+            async getGlobalPlexAvailability() {
+                try {
+                    const response = await fetch(`${this.baseUrl}/api/global-plex-availability`);
+                    if (!response.ok) throw new Error('Failed to fetch global Plex availability');
+                    return await response.json();
+                } catch (error) {
+                    console.error('Global Plex availability error:', error);
+                    throw error;
+                }
+            }
+
             async getUserData(userId) {
                 try {
                     const response = await fetch(`${this.baseUrl}/api/user/${userId}`);
@@ -1175,6 +1199,11 @@
         let userRequestCount = 0;
         let userRequests = new Map();
         
+        // GLOBAL STATUS TRACKING - All users can see each other's request statuses
+        let globalRequestStatuses = new Map(); // All users' request statuses
+        let globalPlexAvailability = new Map(); // Global Plex availability cache
+        let globalStatusListener = null; // Real-time status updates
+        
         // PERFORMANCE OPTIMIZATION: Cache to prevent unnecessary reloads
         let mediaCache = new Map();
         let globalAvailabilityCache = new Map();
@@ -2071,6 +2100,14 @@
                     loadPopularTVShows()
                 ]);
                 console.log('✅ Popular content loaded successfully');
+                
+                // Start global status and Plex availability checking
+                setTimeout(() => {
+                    loadGlobalStatuses();
+                    loadGlobalPlexAvailability();
+                    startGlobalStatusPolling();
+                }, 2000); // Wait 2 seconds for DOM to be ready
+                
             } catch (error) {
                 console.error('❌ Error loading popular content:', error);
                 document.getElementById('popularMovies').innerHTML = '<div class="no-results"><h3>⚠️ Loading Error</h3><p>Please refresh the page.</p></div>';
@@ -4016,7 +4053,147 @@
         };
         
         console.log('🧪 Debug functions available: testSearch(), testMediaType(type), debugState(), debugSearchResults()');
+
+        // ============= GLOBAL STATUS SYSTEM =============
+
+        // Load global request statuses for all users
+        async function loadGlobalStatuses() {
+            try {
+                console.log('🌍 Loading global request statuses...');
+                const response = await window.apiClient.getGlobalStatuses();
+                
+                // Update global status map
+                globalRequestStatuses.clear();
+                Object.entries(response.statuses).forEach(([mediaId, status]) => {
+                    globalRequestStatuses.set(mediaId, status);
+                });
+                
+                console.log('✅ Global statuses loaded:', globalRequestStatuses.size, 'active requests');
+                updateGlobalStatusDisplay();
+                
+            } catch (error) {
+                console.error('❌ Failed to load global statuses:', error);
+            }
+        }
+
+        // Load global Plex availability
+        async function loadGlobalPlexAvailability() {
+            try {
+                console.log('🎬 Loading global Plex availability...');
+                const response = await window.apiClient.getGlobalPlexAvailability();
+                
+                // Update global Plex availability map
+                globalPlexAvailability.clear();
+                Object.entries(response.availability).forEach(([mediaId, availability]) => {
+                    globalPlexAvailability.set(mediaId, availability);
+                });
+                
+                console.log('✅ Global Plex availability loaded:', globalPlexAvailability.size, 'available items');
+                updateGlobalPlexDisplay();
+                
+            } catch (error) {
+                console.error('❌ Failed to load global Plex availability:', error);
+            }
+        }
+
+        // Update the display with global statuses
+        function updateGlobalStatusDisplay() {
+            document.querySelectorAll('.media-card').forEach(card => {
+                const mediaId = card.dataset.mediaId;
+                if (!mediaId) return;
+                
+                const globalStatus = globalRequestStatuses.get(mediaId);
+                if (globalStatus) {
+                    updateMediaCardWithGlobalStatus(card, globalStatus);
+                }
+            });
+        }
+
+        // Update the display with global Plex availability
+        function updateGlobalPlexDisplay() {
+            document.querySelectorAll('.media-card').forEach(card => {
+                const mediaId = card.dataset.mediaId;
+                if (!mediaId) return;
+                
+                const plexAvailability = globalPlexAvailability.get(mediaId);
+                if (plexAvailability && plexAvailability.available) {
+                    addPlexAvailableBadge(card, plexAvailability);
+                }
+            });
+        }
+
+        // Update a media card with global status
+        function updateMediaCardWithGlobalStatus(card, status) {
+            const button = card.querySelector('.request-btn');
+            if (!button) return;
+            
+            // Update button based on global status
+            button.className = `request-btn ${status.status}`;
+            
+            switch (status.status) {
+                case 'searching':
+                    button.textContent = `🔍 Searching... (${status.userEmail})`;
+                    button.disabled = true;
+                    break;
+                case 'downloading':
+                    button.textContent = `⬇️ Downloading... (${status.userEmail})`;
+                    button.disabled = true;
+                    break;
+                case 'processing':
+                    button.textContent = `⚙️ Processing... (${status.userEmail})`;
+                    button.disabled = true;
+                    break;
+                case 'pending':
+                    button.textContent = `⏳ Pending... (${status.userEmail})`;
+                    button.disabled = true;
+                    break;
+                default:
+                    button.textContent = `🎬 Request by ${status.userEmail}`;
+                    button.disabled = true;
+            }
+        }
+
+        // Add Plex available badge to card
+        function addPlexAvailableBadge(card, availability) {
+            // Check if badge already exists
+            if (card.querySelector('.plex-available-badge')) return;
+            
+            const badge = document.createElement('div');
+            badge.className = 'plex-available-badge';
+            badge.style.cssText = `
+                position: absolute;
+                top: 8px;
+                left: 8px;
+                background: linear-gradient(45deg, #4ecdc4, #44a08d);
+                color: white;
+                padding: 4px 8px;
+                border-radius: 12px;
+                font-size: 0.7rem;
+                font-weight: 600;
+                z-index: 2;
+            `;
+            badge.textContent = '✅ Available on Plex';
+            card.appendChild(badge);
+            
+            // Update button
+            const button = card.querySelector('.request-btn');
+            if (button) {
+                button.textContent = '✅ Available on Plex';
+                button.className = 'request-btn available';
+                button.disabled = true;
+            }
+        }
+
+        // Start polling for global status updates
+        function startGlobalStatusPolling() {
+            // Poll every 30 seconds for status updates
+            setInterval(() => {
+                loadGlobalStatuses();
+                loadGlobalPlexAvailability();
+            }, 30000);
+            
+            console.log('🔄 Global status polling started (30s intervals)');
+        }
     </script>
 </body>
-</html>
 </html>
