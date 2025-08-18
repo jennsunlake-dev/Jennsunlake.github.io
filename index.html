@@ -16,8 +16,7 @@
         // API client for backend communication
         class ApiClient {
             constructor() {
-                // Production API URL - pointing to your Vercel backend
-                this.baseUrl = 'https://notflix-request.vercel.app';
+                this.baseUrl = window.location.origin;
                 this.currentUser = null;
                 this.idToken = null;
             }
@@ -131,6 +130,10 @@
             window.auth = auth;
             window.tmdbApiKey = config.tmdbApiKey;
             console.log('🔥 Firebase initialized securely via backend');
+            console.log('🎬 TMDB API key loaded:', config.tmdbApiKey ? 'YES' : 'NO');
+            
+            // Load popular content AFTER config is loaded
+            loadPopularContent();
         }).catch(error => {
             console.error('Failed to initialize Firebase:', error);
         });
@@ -1587,8 +1590,7 @@
             loadUserRequests();
             listenForRequestUpdates();
             
-            // Load content
-            loadPopularContent();
+            // Popular content already loaded during config initialization
             
             console.log('✅ UI updated for signed-in user');
         }
@@ -3610,8 +3612,8 @@
             }
             
             if (!checkSavedSession()) {
-                // Load popular content even when not signed in (for preview)
-                loadPopularContent();
+                // Popular content will be loaded after config is fetched
+                console.log('📱 Not signed in - popular content will load after config');
             }
             
             // Add search input event listener for Enter key
