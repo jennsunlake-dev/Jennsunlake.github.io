@@ -2032,13 +2032,17 @@
                 
                 const data = await response.json();
                 console.log('🎬 Movies data received:', data.results?.length, 'movies');
+                console.log('🎬 First movie data:', data.results?.[0]);
+                console.log('🎬 First movie poster_path:', data.results?.[0]?.poster_path);
                 
                 // Store movies for display
                 allMovies = data.results.map(item => ({...item, media_type: 'movie'}));
+                console.log('🎬 Processed movies:', allMovies.slice(0, 2));
                 
                 // Initially show first 20 movies
                 moviesLoaded = 20;
                 const initialMovies = allMovies.slice(0, moviesLoaded);
+                console.log('🎬 About to display movies:', initialMovies.length);
                 await displayResults(initialMovies, moviesDiv);
                 
                 // Update load more button
@@ -2068,13 +2072,17 @@
                 
                 const data = await response.json();
                 console.log('📺 TV shows data received:', data.results?.length, 'shows');
+                console.log('📺 First TV show data:', data.results?.[0]);
+                console.log('📺 First TV show poster_path:', data.results?.[0]?.poster_path);
                 
                 // Store TV shows for display
                 allTVShows = data.results.map(item => ({...item, media_type: 'tv'}));
+                console.log('📺 Processed TV shows:', allTVShows.slice(0, 2));
                 
                 // Initially show first 20 TV shows
                 tvShowsLoaded = 20;
                 const initialTVShows = allTVShows.slice(0, tvShowsLoaded);
+                console.log('📺 About to display TV shows:', initialTVShows.length);
                 await displayResults(initialTVShows, tvDiv);
                 
                 // Update load more button
@@ -2607,7 +2615,9 @@
             let posterPath;
             if (item.poster_path) {
                 posterPath = 'https://image.tmdb.org/t/p/w500' + item.poster_path;
+                console.log('🖼️ Created poster URL:', posterPath, 'for', title);
             } else {
+                console.log('⚠️ No poster_path for:', title, 'item:', item);
                 // Use a simple fallback instead of SVG to avoid encoding issues
                 posterPath = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(`
                     <svg width="300" height="450" xmlns="http://www.w3.org/2000/svg">
