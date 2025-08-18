@@ -1882,8 +1882,8 @@
                 if (currentMediaType === 'multi') {
                     console.log('🎭 Searching both movies and TV shows via backend proxy');
                     
-                    const movieUrl = `${window.apiClient.baseUrl}/api/tmdb/search/movie?query=${encodeURIComponent(query)}`;
-                    const tvUrl = `${window.apiClient.baseUrl}/api/tmdb/search/tv?query=${encodeURIComponent(query)}`;
+                    const movieUrl = `https://notflix-request.vercel.app/api/tmdb/search/movie?query=${encodeURIComponent(query)}`;
+                    const tvUrl = `https://notflix-request.vercel.app/api/tmdb/search/tv?query=${encodeURIComponent(query)}`;
                     
                     console.log('🔍 Movie Proxy URL:', movieUrl);
                     console.log('🔍 TV Proxy URL:', tvUrl);
@@ -1911,7 +1911,7 @@
                 } else {
                     console.log(`🎯 Searching ${currentMediaType} only via backend proxy`);
                     
-                    const searchUrl = `${window.apiClient.baseUrl}/api/tmdb/search/${currentMediaType}?query=${encodeURIComponent(query)}`;
+                    const searchUrl = `https://notflix-request.vercel.app/api/tmdb/search/${currentMediaType}?query=${encodeURIComponent(query)}`;
                     console.log('🔍 Search Proxy URL:', searchUrl);
                     
                     // Search specific type
@@ -2042,7 +2042,7 @@
             
             try {
                 console.log('🎬 Fetching popular movies via backend proxy...');
-                const proxyUrl = `${window.apiClient.baseUrl}/api/tmdb/movie/popular?page=1`;
+                const proxyUrl = `https://notflix-request.vercel.app/api/tmdb/movie/popular?page=1`;
                 console.log('🔗 Proxy URL:', proxyUrl);
                 
                 const response = await fetch(proxyUrl);
@@ -2085,7 +2085,7 @@
             
             try {
                 console.log('📺 Fetching popular TV shows via backend proxy...');
-                const proxyUrl = `${window.apiClient.baseUrl}/api/tmdb/tv/popular?page=1`;
+                const proxyUrl = `https://notflix-request.vercel.app/api/tmdb/tv/popular?page=1`;
                 console.log('🔗 TV Proxy URL:', proxyUrl);
                 
                 const response = await fetch(proxyUrl);
