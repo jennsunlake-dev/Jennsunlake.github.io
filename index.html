@@ -2006,28 +2006,27 @@
         // Enhanced content loading with API key check
         async function loadPopularContent() {
             console.log('🎬 Loading popular content...');
-            
-            // Wait for TMDB API key to be available from backend
-            let attempts = 0;
-            const maxAttempts = 10;
-            
-            while (!window.tmdbApiKey && attempts < maxAttempts) {
-                console.log(`⏳ Waiting for TMDB API key... (attempt ${attempts + 1}/${maxAttempts})`);
-                await new Promise(resolve => setTimeout(resolve, 500)); // Wait 500ms
-                attempts++;
-            }
+            console.log('🔑 TMDB API key available:', !!window.tmdbApiKey);
+            console.log('🔑 TMDB API key value:', window.tmdbApiKey);
             
             if (!window.tmdbApiKey) {
-                console.error('❌ TMDB API key not available after waiting. Cannot load content.');
+                console.error('❌ TMDB API key not available. Cannot load content.');
+                document.getElementById('popularMovies').innerHTML = '<div class="no-results"><h3>⚠️ Configuration Error</h3><p>TMDB API key not loaded.</p></div>';
+                document.getElementById('popularTVShows').innerHTML = '<div class="no-results"><h3>⚠️ Configuration Error</h3><p>TMDB API key not loaded.</p></div>';
                 return;
             }
             
-            console.log('✅ TMDB API key loaded, fetching popular content...');
+            console.log('✅ TMDB API key available, fetching popular content...');
             
-            await Promise.all([
-                loadPopularMovies(),
-                loadPopularTVShows()
-            ]);
+            try {
+                await Promise.all([
+                    loadPopularMovies(),
+                    loadPopularTVShows()
+                ]);
+                console.log('✅ Popular content loaded successfully');
+            } catch (error) {
+                console.error('❌ Error loading popular content:', error);
+            }
         }
 
         async function loadPopularMovies() {
@@ -2042,20 +2041,25 @@
             }
             
             try {
-                // Fetch from multiple pages to get more content
-                const [page1, page2, page3] = await Promise.all([
-                    fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${window.tmdbApiKey}&page=1`),
-                    fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${window.tmdbApiKey}&page=2`),
-                    fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${window.tmdbApiKey}&page=3`)
-                ]);
+                console.log('🎬 Fetching popular movies from TMDB...');
+                console.log('🔗 TMDB URL:', `${TMDB_BASE_URL}/movie/popular?api_key=${window.tmdbApiKey}&page=1`);
                 
-                const [data1, data2, data3] = await Promise.all([page1.json(), page2.json(), page3.json()]);
+                // Test with just one page first
+                const response = await fetch(`${TMDB_BASE_URL}/movie/popular?api_key=${window.tmdbApiKey}&page=1`);
+                console.log('📡 TMDB Response status:', response.status, response.statusText);
                 
-                // Store all movies for load more functionality
-                allMovies = [...data1.results, ...data2.results, ...data3.results].map(item => ({...item, media_type: 'movie'}));
+                if (!response.ok) {
+                    throw new Error(`TMDB API error: ${response.status} ${response.statusText}`);
+                }
                 
-                // Initially show first 24 movies
-                moviesLoaded = 24;
+                const data = await response.json();
+                console.log('🎬 TMDB data received:', data.results?.length, 'movies');
+                
+                // Store movies for display
+                allMovies = data.results.map(item => ({...item, media_type: 'movie'}));
+                
+                // Initially show first 20 movies
+                moviesLoaded = 20;
                 const initialMovies = allMovies.slice(0, moviesLoaded);
                 await displayResults(initialMovies, moviesDiv);
                 
