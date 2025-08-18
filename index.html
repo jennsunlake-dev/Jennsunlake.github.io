@@ -60,10 +60,13 @@
 
             async getGlobalAvailability(tmdbId, type) {
                 try {
-                    // First try to get Plex availability from local automation
+                    // First try to get Plex availability from local automation (only if on localhost)
                     let plexAvailability = null;
-                    try {
-                        const localResponse = await fetch(`http://localhost:3000/check-plex`, {
+                    
+                    // Only try local Plex checking if we're on localhost (not the live site)
+                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+                        try {
+                            const localResponse = await fetch(`http://localhost:3000/check-plex`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
                             body: JSON.stringify({
@@ -76,14 +79,17 @@
                             })
                         });
                         
-                        if (localResponse.ok) {
-                            const localData = await localResponse.json();
-                            const mediaKey = `${type}-${tmdbId}`;
-                            plexAvailability = localData.results?.[mediaKey];
-                            console.log('🎬 Local Plex check result:', plexAvailability);
+                            if (localResponse.ok) {
+                                const localData = await localResponse.json();
+                                const mediaKey = `${type}-${tmdbId}`;
+                                plexAvailability = localData.results?.[mediaKey];
+                                console.log('🎬 Local Plex check result:', plexAvailability);
+                            }
+                        } catch (localError) {
+                            console.log('⚠️ Local automation not reachable, using Vercel backend only');
                         }
-                    } catch (localError) {
-                        console.log('⚠️ Local automation not reachable, using Vercel backend only');
+                    } else {
+                        console.log('🌐 Live site detected - skipping local Plex check, using backend data only');
                     }
                     
                     // Always get Firebase request data from Vercel backend
