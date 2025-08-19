@@ -2120,7 +2120,7 @@
             } catch (error) {
                 console.error('❌ Search error:', error);
                 console.error('❌ Error stack:', error.stack);
-                searchResults.innerHTML = '<div class="no-results"><h3>⚠️ Search Error</h3><p>Please try again.</p></div>';
+                searchResults.innerHTML = '<div class="no-results"><h3>🔍 Search Temporarily Unavailable</h3><p>Check back in a few minutes - we\'re working on it!</p></div>';
             }
         }
 
@@ -2204,8 +2204,8 @@
                 
             } catch (error) {
                 console.error('❌ Error loading popular content:', error);
-                document.getElementById('popularMovies').innerHTML = '<div class="no-results"><h3>⚠️ Loading Error</h3><p>Please refresh the page.</p></div>';
-                document.getElementById('popularTVShows').innerHTML = '<div class="no-results"><h3>⚠️ Loading Error</h3><p>Please refresh the page.</p></div>';
+                document.getElementById('popularMovies').innerHTML = '<div class="no-results"><h3>🎬 Popular Movies Updating</h3><p>Check back in 5 minutes - content is being refreshed!</p></div>';
+                document.getElementById('popularTVShows').innerHTML = '<div class="no-results"><h3>📺 Popular Shows Updating</h3><p>Check back in 5 minutes - content is being refreshed!</p></div>';
             }
         }
 
@@ -2245,7 +2245,7 @@
                 
             } catch (error) {
                 console.error('Error loading popular movies:', error);
-                moviesDiv.innerHTML = '<div class="no-results"><h3>⚠️ Error Loading Movies</h3><p>Please try again later.</p></div>';
+                moviesDiv.innerHTML = '<div class="no-results"><h3>🎬 Movies Temporarily Unavailable</h3><p>Check back in 5 minutes - content is being updated!</p></div>';
             }
         }
 
@@ -2285,7 +2285,7 @@
                 
             } catch (error) {
                 console.error('Error loading popular TV shows:', error);
-                tvDiv.innerHTML = '<div class="no-results"><h3>⚠️ Error Loading TV Shows</h3><p>Please try again later.</p></div>';
+                tvDiv.innerHTML = '<div class="no-results"><h3>📺 TV Shows Temporarily Unavailable</h3><p>Check back in 5 minutes - content is being updated!</p></div>';
             }
         }
 
@@ -2419,7 +2419,7 @@
                 
             } catch (error) {
                 console.error('Error loading browse content:', error);
-                browseResults.innerHTML = '<div class="no-results"><h3>⚠️ Error Loading Content</h3><p>Please try again later.</p></div>';
+                browseResults.innerHTML = '<div class="no-results"><h3>📱 Content Temporarily Unavailable</h3><p>Check back in 5 minutes - our catalog is being updated!</p></div>';
             }
         }
 
@@ -2658,8 +2658,8 @@
                             episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5; color: #28a745; font-weight: 600;">✅ Countdown expired - You can try requesting again!</div>`;
                         }
                     } else {
-                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 6px; border: 1px solid rgba(255, 107, 107, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff6b6b; font-weight: 600;">${userRequest.status === 'not_available' ? '🚫 Not Available' : '⚠️ Error'}</div>`;
-                        buttonText = userRequest.status === 'not_available' ? 'Not Available 🚫' : 'Error ⚠️';
+                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 6px; border: 1px solid rgba(255, 107, 107, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff6b6b; font-weight: 600;">${userRequest.status === 'not_available' ? '⏰ Check back in 5 days' : '⏰ Check back in 5 days'}</div>`;
+                        buttonText = userRequest.status === 'not_available' ? 'Check back in 5 days ⏰' : 'Check back in 5 days ⏰';
                     }
                     buttonClass = `request-btn ${userRequest.status}`;
                 } else if (userRequest.selectedEpisodes) {
@@ -2701,7 +2701,7 @@
                                 buttonDisabled = false;
                             }
                         } else {
-                            buttonText = 'Not Available 🚫';
+                            buttonText = 'Check back in 5 days ⏰';
                             buttonClass = 'request-btn not_available';
                         }
                         break;
@@ -2733,7 +2733,7 @@
                             buttonClass = 'request-btn retry-enabled';
                             buttonDisabled = false;
                         } else {
-                        buttonText = 'Error ⚠️';
+                        buttonText = 'Check back in 5 days ⏰';
                         buttonClass = 'request-btn error';
                         }
                         break;
@@ -2791,9 +2791,9 @@
                         buttonClass = 'request-btn not_available';
                         episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 6px; border: 1px solid rgba(255, 107, 107, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff6b6b; font-weight: 600;">⏰ ${globalAvailability.countdownInfo.message} - Content may become available soon</div>`;
                     } else {
-                        buttonText = 'Not Available 🚫';
+                        buttonText = 'Check back in 5 days ⏰';
                         buttonClass = 'request-btn not_available';
-                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 6px; border: 1px solid rgba(255, 107, 107, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff6b6b; font-weight: 600;">🚫 Not Available</div>`;
+                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 6px; border: 1px solid rgba(255, 107, 107, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff6b6b; font-weight: 600;">⏰ Check back in 5 days</div>`;
                     }
                 }
             }
@@ -3095,7 +3095,7 @@
                 // Check if the request failed or is not available
                 if (userRequest.status === 'not_available' || userRequest.status === 'error') {
                     // Show error status instead of episode info
-                    statusDiv.innerHTML = `<span style="color: #ff6b6b; font-weight: 600;">${userRequest.status === 'not_available' ? '🚫 Not Available' : '⚠️ Error'}</span>`;
+                    statusDiv.innerHTML = `<span style="color: #ff6b6b; font-weight: 600;">${userRequest.status === 'not_available' ? '⏰ Check back in 5 days' : '⏰ Check back in 5 days'}</span>`;
                     statusDiv.style.display = 'block';
                     statusDiv.style.background = 'rgba(255, 107, 107, 0.1)';
                     statusDiv.style.borderColor = 'rgba(255, 107, 107, 0.3)';
@@ -3134,7 +3134,7 @@
                     button.textContent = 'Approved ✅';
                     break;
                 case 'not_available':
-                    button.textContent = 'Not Available 🚫';
+                    button.textContent = 'Check back in 5 days ⏰';
                     break;
                 case 'no_storage':
                     button.textContent = 'No Storage 💾';
@@ -3488,19 +3488,19 @@
                     stack: error.stack
                 });
                 
-                let errorMessage = 'Unable to load episode information. ';
+                let errorMessage = 'Episode information is temporarily unavailable. ';
                 if (error.message.includes('TMDB API request failed')) {
-                    errorMessage = `TMDB API error: ${error.message}. Please try again.`;
+                    errorMessage = `Episode data is being updated - check back in 5 minutes!`;
                 } else {
-                    errorMessage += `Error: ${error.message}`;
+                    errorMessage += `Try again in a few minutes while we refresh the data.`;
                 }
                 
                 document.getElementById('seasonContent').innerHTML = 
                     `<div style="text-align: center; padding: 40px; color: #ff6b6b;">
-                        <h3>⚠️ Error Loading Episodes</h3>
+                        <h3>📺 Episodes Temporarily Unavailable</h3>
                         <p>${errorMessage}</p>
                         <button onclick="retryEpisodeLoading(${tvId})" style="margin-top: 15px; padding: 8px 16px; background: #4ecdc4; border: none; border-radius: 6px; color: white; cursor: pointer;">
-                            Retry Loading Episodes
+                            Try Again Now
                         </button>
                     </div>`;
             }
