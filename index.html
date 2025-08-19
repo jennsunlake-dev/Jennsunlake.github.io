@@ -1102,7 +1102,7 @@
                 <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
                     <p style="font-size: 0.9rem; color: #a0a0a0; margin-bottom: 15px;">Or sign in with email:</p>
                     <input type="email" class="email-input" id="emailInput" placeholder="Enter your authorized email">
-                    <button class="test-signin-btn" onclick="testSignIn()">
+                    <button class="test-signin-btn" onclick="handleEmailSignIn()">
                         <svg width="16" height="16" viewBox="0 0 24 24" style="margin-right: 8px;">
                             <path fill="currentColor" d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C2,4.89 21.1,4 20,4Z"/>
                         </svg>
@@ -1276,8 +1276,8 @@
             localStorage.setItem('plexUser', JSON.stringify(user));
         }
 
-        // Google Sign-In callback
-        function handleCredentialResponse(response) {
+        // Google Sign-In callback - MUST be in global scope for Google to access
+        window.handleCredentialResponse = function(response) {
             console.log('🔐 Google Sign-In response received');
             
             try {
@@ -1309,8 +1309,8 @@
             return JSON.parse(jsonPayload);
         }
 
-        // Email-based sign in - ENHANCED WITH DEBUGGING
-        async function handleEmailSignIn() {
+        // Email-based sign in - ENHANCED WITH DEBUGGING - MADE GLOBAL
+        window.handleEmailSignIn = async function() {
             console.log('📧 Email sign-in started');
             
             try {
@@ -1337,7 +1337,7 @@
                 console.log('📧 Attempting sign-in for:', email);
 
                 // Update button to show processing
-                const signInBtn = document.querySelector('[onclick="handleEmailSignIn()"]');
+                const signInBtn = document.querySelector('.test-signin-btn');
                 if (signInBtn) {
                     signInBtn.innerHTML = 'Signing in...';
                     signInBtn.disabled = true;
@@ -1372,7 +1372,7 @@
                 alert('Sign-in failed: ' + error.message);
                 
                 // Reset button
-                const signInBtn = document.querySelector('[onclick="handleEmailSignIn()"]');
+                const signInBtn = document.querySelector('.test-signin-btn');
                 if (signInBtn) {
                     signInBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" style="margin-right: 8px;"><path fill="currentColor" d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C2,4.89 21.1,4 20,4Z"/></svg>Email Sign In';
                     signInBtn.disabled = false;
@@ -1451,7 +1451,7 @@
             console.log('🔐 Checking authorization for:', tempUser.email);
             
             // Update button state
-            const emailSignInBtn = document.querySelector('[onclick="handleEmailSignIn()"]');
+            const emailSignInBtn = document.querySelector('.test-signin-btn');
             if (emailSignInBtn) {
                 emailSignInBtn.innerHTML = 'Checking authorization...';
                 emailSignInBtn.disabled = true;
@@ -1617,7 +1617,7 @@
             alert('⛔ Access Denied\n\n' + message);
             
             // Reset button
-            const emailSignInBtn = document.querySelector('[onclick="handleEmailSignIn()"]');
+            const emailSignInBtn = document.querySelector('.test-signin-btn');
             if (emailSignInBtn) {
                 emailSignInBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" style="margin-right: 8px;"><path fill="currentColor" d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C2,4.89 21.1,4 20,4Z"/></svg>Email Sign In';
                 emailSignInBtn.disabled = false;
@@ -3756,6 +3756,17 @@
                     }
                 });
                 console.log('✅ Email input Enter listener added');
+            }
+
+            // Add email sign-in button event listener as backup
+            const emailSignInBtn = document.querySelector('.test-signin-btn');
+            if (emailSignInBtn) {
+                emailSignInBtn.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    console.log('📧 Email sign-in button clicked via event listener');
+                    handleEmailSignIn();
+                });
+                console.log('✅ Email sign-in button listener added');
             }
             
             console.log('✅ All event listeners added successfully');
