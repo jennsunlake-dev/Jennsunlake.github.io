@@ -3166,7 +3166,7 @@
                 
                 selectedEpisodes = {};
                 
-                const apiUrl = `/api/tmdb/tv/${tvId}`;
+                const apiUrl = `https://notflix-request.vercel.app/api/tmdb/tv/${tvId}`;
                 console.log('🔗 Fetching TV details from proxy:', apiUrl);
                 
                 const response = await fetch(apiUrl);
@@ -3249,7 +3249,7 @@
                 const regularSeasons = tvShowDetails.seasons.filter(season => season.season_number > 0);
                 
                 for (const season of regularSeasons) {
-                    const seasonApiUrl = `/api/tmdb/tv/${tvId}/season/${season.season_number}`;
+                    const seasonApiUrl = `https://notflix-request.vercel.app/api/tmdb/tv/${tvId}/season/${season.season_number}`;
                     console.log('🔗 Fetching season details from proxy:', seasonApiUrl);
                     
                     const seasonResponse = await fetch(seasonApiUrl);
