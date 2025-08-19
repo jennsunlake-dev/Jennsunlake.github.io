@@ -2619,7 +2619,8 @@
             card.className = 'media-card';
             
             const title = item.title || item.name;
-            const year = item.release_date || item.first_air_date;
+            const rawYear = item.release_date || item.first_air_date;
+            const year = rawYear ? new Date(rawYear).getFullYear() : null;
             const mediaType = item.media_type || currentMediaType;
             const mediaId = mediaType + '-' + item.id;
             
@@ -2833,10 +2834,11 @@
             card.innerHTML = `
                 <img src="${posterPath}" alt="${title}" class="media-poster">
                 <div class="media-info">
-                    <h3 class="media-title">${title}</h3>
+                    <h3 class="media-title">${title}${year ? ` (${year})` : ''}</h3>
                     <div class="media-meta">
-                        <span class="media-year">${year ? new Date(year).getFullYear() : 'Unknown'}</span>
+                        <span class="media-year">${year || 'Unknown'}</span>
                         <span class="media-type-badge">${mediaType === 'tv' ? 'TV' : 'Movie'}</span>
+                        <span class="tmdb-id">ID: ${item.id}</span>
                     </div>
                     <p class="media-overview">${item.overview || 'No description available.'}</p>
                     ${episodeStatusHTML}
@@ -2918,15 +2920,34 @@
                 episodeData[`S${String(season).padStart(2, '0')}`] = episodes.sort((a, b) => a - b);
             }
             
+            // Extract year from release date for accurate matching
+            let releaseYear = null;
+            if (selectedMedia.release_date) {
+                releaseYear = new Date(selectedMedia.release_date).getFullYear();
+            } else if (selectedMedia.first_air_date) {
+                releaseYear = new Date(selectedMedia.first_air_date).getFullYear();
+            }
+            
             const requestData = {
                 tmdbId: selectedMedia.id,
                 title: selectedMedia.title || selectedMedia.name,
+                originalTitle: selectedMedia.original_title || selectedMedia.original_name,
+                year: releaseYear,
                 mediaType: mediaType === 'tv' ? 'tv' : 'movie',
                 poster_path: selectedMedia.poster_path,
+                backdrop_path: selectedMedia.backdrop_path,
+                overview: selectedMedia.overview,
+                release_date: selectedMedia.release_date || selectedMedia.first_air_date,
+                vote_average: selectedMedia.vote_average,
+                genre_ids: selectedMedia.genre_ids,
                 userName: currentUser.name,
                 userEmail: currentUser.email,
                 userId: currentUser.id,
-                selectedEpisodes: episodeData
+                selectedEpisodes: episodeData,
+                // Additional metadata for precise matching
+                imdb_id: selectedMedia.imdb_id,
+                adult: selectedMedia.adult,
+                original_language: selectedMedia.original_language
             };
             
             try {
