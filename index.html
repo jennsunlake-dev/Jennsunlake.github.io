@@ -1087,7 +1087,8 @@
                      data-context="signin"
                      data-ux_mode="popup"
                      data-callback="handleCredentialResponse"
-                     data-auto_prompt="false">
+                     data-auto_prompt="false"
+                     data-allowed_parent_origin="https://notflixrequest.com">
                 </div>
                 <div class="g_id_signin"
                      data-type="standard"
@@ -1095,7 +1096,8 @@
                      data-theme="filled_blue"
                      data-text="signin_with"
                      data-size="large"
-                     data-logo_alignment="left">
+                     data-logo_alignment="left"
+                     data-error_callback="handleGoogleSignInError">
                 </div>
                 
                 <!-- Email Sign-In -->
@@ -1296,7 +1298,20 @@
                 
             } catch (error) {
                 console.error('❌ Error handling Google sign-in:', error);
-                alert('Google Sign-In failed. Please try the email sign-in option.');
+                alert('Google Sign-In failed. Please try the email sign-in option below.');
+            }
+        }
+
+        // Handle Google Sign-In errors
+        window.handleGoogleSignInError = function(error) {
+            console.error('🚫 Google Sign-In Error:', error);
+            
+            if (error.type === 'popup_blocked') {
+                alert('⚠️ Popup blocked! Please allow popups for this site and try again.');
+            } else if (error.type === 'access_blocked') {
+                alert('🚫 Google access blocked. This may be due to OAuth configuration.\n\nPlease use the email sign-in option below instead.');
+            } else {
+                alert('❌ Google Sign-In failed. Please try the email sign-in option below.');
             }
         }
 
@@ -1314,10 +1329,20 @@
             console.log('📧 Email sign-in started');
             
             try {
-                const emailInput = document.getElementById('emailInput');
+                // Wait a moment for DOM to be ready and try multiple times
+                let emailInput = document.getElementById('emailInput');
+                let attempts = 0;
+                while (!emailInput && attempts < 3) {
+                    console.log(`🔍 Attempt ${attempts + 1} to find email input`);
+                    await new Promise(resolve => setTimeout(resolve, 100)); // Wait 100ms
+                    emailInput = document.getElementById('emailInput');
+                    attempts++;
+                }
+                
                 if (!emailInput) {
-                    console.error('❌ Email input not found');
-                    alert('Email input not found');
+                    console.error('❌ Email input not found after multiple attempts');
+                    console.log('🔍 Available inputs:', document.querySelectorAll('input[type="email"]'));
+                    alert('Email input not found. Please refresh the page and try again.');
                     return;
                 }
                 
