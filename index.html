@@ -195,11 +195,11 @@
             // Check if Firebase config is valid
             if (config.firebase && config.firebase.apiKey) {
                 try {
-                    firebaseApp = initializeApp(config.firebase);
-                    auth = getAuth(firebaseApp);
-                    window.firebaseApp = firebaseApp;
-                    window.auth = auth;
-                    console.log('🔥 Firebase initialized securely via backend');
+            firebaseApp = initializeApp(config.firebase);
+            auth = getAuth(firebaseApp);
+            window.firebaseApp = firebaseApp;
+            window.auth = auth;
+            console.log('🔥 Firebase initialized securely via backend');
                 } catch (firebaseError) {
                     console.error('❌ Firebase initialization failed:', firebaseError);
                     console.log('⚠️ Continuing without Firebase (will use defaults)');
@@ -1504,13 +1504,13 @@
                 if (!userData) {
                     // Only check local automation if on localhost
                     if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                        try {
-                            console.log('🤖 Checking Discord automation system...');
-                            // Add timeout to prevent hanging
-                            const controller = new AbortController();
-                            const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
-                            
-                            const response = await fetch('http://localhost:3000/check-user', {
+                    try {
+                        console.log('🤖 Checking Discord automation system...');
+                        // Add timeout to prevent hanging
+                        const controller = new AbortController();
+                        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
+                        
+                        const response = await fetch('http://localhost:3000/check-user', {
                             method: 'POST',
                             headers: {
                                 'Content-Type': 'application/json',
@@ -1533,8 +1533,8 @@
                                 };
                             }
                         }
-                                            } catch (error) {
-                            console.log('⚠️ Discord system check failed (using fallback):', error.message);
+                    } catch (error) {
+                        console.log('⚠️ Discord system check failed (using fallback):', error.message);
                         }
                     } else {
                         console.log('🌐 Live site - skipping local Discord automation check');
@@ -2095,10 +2095,10 @@
             console.log('🎬 Loading popular content via backend proxy...');
             
             try {
-                await Promise.all([
-                    loadPopularMovies(),
-                    loadPopularTVShows()
-                ]);
+            await Promise.all([
+                loadPopularMovies(),
+                loadPopularTVShows()
+            ]);
                 console.log('✅ Popular content loaded successfully');
                 
                 // Start global status and Plex availability checking
