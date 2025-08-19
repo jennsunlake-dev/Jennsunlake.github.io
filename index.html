@@ -1004,6 +1004,13 @@
             }
         }
 
+        /* Green pulse animation for Plex available episodes */
+        @keyframes pulse-green {
+            0% { box-shadow: 0 0 10px rgba(40, 167, 69, 0.4); }
+            50% { box-shadow: 0 0 20px rgba(40, 167, 69, 0.7), 0 0 30px rgba(40, 167, 69, 0.3); }
+            100% { box-shadow: 0 0 10px rgba(40, 167, 69, 0.4); }
+        }
+
         /* Extra small mobile devices */
         @media (max-width: 480px) {
             .header h1 {
@@ -2675,15 +2682,15 @@
                 buttonDisabled = true;
                 switch (userRequest.status) {
                     case 'pending':
-                        // Allow pending items to be clicked again (ultra aggressive - 1 minute)
+                        // Allow pending items to be clicked again (ultra aggressive - 30 seconds)
                         const pendingAge = Date.now() - new Date(userRequest.timestamp?.seconds * 1000 || userRequest.lastUpdated || Date.now());
-                        if (pendingAge > 1 * 60 * 1000) { // 1 minute old
+                        if (pendingAge > 30 * 1000) { // 30 seconds old
                             buttonText = 'Request Movie 🔄';
                             buttonClass = 'request-btn retry-enabled';
                             buttonDisabled = false;
                         } else {
-                        buttonText = 'Pending ⏳';
-                        buttonClass = 'request-btn pending';
+                            buttonText = 'Pending ⏳';
+                            buttonClass = 'request-btn pending';
                         }
                         break;
                     case 'approved':
@@ -2727,15 +2734,15 @@
                         buttonClass = 'request-btn added_to_queue';
                         break;
                     case 'error':
-                        // Allow error items to be retried after 30 seconds
+                        // Allow error items to be retried after 10 seconds
                         const errorAge = Date.now() - new Date(userRequest.timestamp?.seconds * 1000 || userRequest.lastUpdated || Date.now());
-                        if (errorAge > 30 * 1000) { // 30 seconds old
+                        if (errorAge > 10 * 1000) { // 10 seconds old
                             buttonText = 'Request Movie 🔄';
                             buttonClass = 'request-btn retry-enabled';
                             buttonDisabled = false;
                         } else {
-                        buttonText = 'Check back in 5 days ⏰';
-                        buttonClass = 'request-btn error';
+                            buttonText = 'Processing... ⏳';
+                            buttonClass = 'request-btn processing';
                         }
                         break;
                 }
@@ -3457,21 +3464,21 @@
                         const isGloballyBlocked = globallyBlockedEpisodes.includes(episode.episode_number);
                         
                         if (isPlexAvailable) {
-                            // Plex available episode - show as green/disabled (highest priority)
+                            // ENHANCED: Plex available episode - prominent green highlighting with animation
                             contentHTML += `
-                                <div data-season="${season.season_number}" data-episode="${episode.episode_number}" style="padding: 8px 6px; background: rgba(40, 167, 69, 0.3); border: 1px solid rgba(40, 167, 69, 0.7); border-radius: 6px; color: #28a745; font-size: 0.8rem; text-align: center; position: relative; opacity: 0.9;">
-                                    <div>E${String(episode.episode_number).padStart(2, '0')} 📦</div>
-                                    <div style="font-size: 0.6rem; color: #28a745; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${episodeTitle}">In Plex</div>
+                                <div data-season="${season.season_number}" data-episode="${episode.episode_number}" style="padding: 8px 6px; background: linear-gradient(135deg, rgba(40, 167, 69, 0.4), rgba(72, 199, 116, 0.3)); border: 2px solid #28a745; border-radius: 8px; color: #ffffff; font-size: 0.8rem; text-align: center; position: relative; box-shadow: 0 0 10px rgba(40, 167, 69, 0.4); animation: pulse-green 2s infinite;">
+                                    <div style="font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">E${String(episode.episode_number).padStart(2, '0')} ✅📦</div>
+                                    <div style="font-size: 0.6rem; color: #c8e6c9; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;" title="${episodeTitle}">Available in Plex</div>
                                 </div>
                             `;
                         } else if (isGloballyAvailable) {
-                            // Globally available episode - show as disabled with global indicator
+                            // ENHANCED: Globally available episode - light green highlighting 
                             const statusIcon = isUserRequested && isUserBlocked ? '✅' : '🌍';
-                            const statusText = isUserRequested && isUserBlocked ? 'Available' : 'Global';
+                            const statusText = isUserRequested && isUserBlocked ? 'Available' : 'Downloaded';
                             contentHTML += `
-                                <div data-season="${season.season_number}" data-episode="${episode.episode_number}" style="padding: 8px 6px; background: rgba(40, 167, 69, 0.2); border: 1px solid rgba(40, 167, 69, 0.5); border-radius: 6px; color: #28a745; font-size: 0.8rem; text-align: center; position: relative; opacity: 0.8;">
-                                    <div>E${String(episode.episode_number).padStart(2, '0')} ${statusIcon}</div>
-                                    <div style="font-size: 0.6rem; color: #28a745; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${episodeTitle}">${statusText}</div>
+                                <div data-season="${season.season_number}" data-episode="${episode.episode_number}" style="padding: 8px 6px; background: linear-gradient(135deg, rgba(40, 167, 69, 0.25), rgba(76, 175, 80, 0.2)); border: 1px solid rgba(40, 167, 69, 0.6); border-radius: 6px; color: #2e7d32; font-size: 0.8rem; text-align: center; position: relative; box-shadow: 0 0 5px rgba(40, 167, 69, 0.2);">
+                                    <div style="font-weight: 600;">E${String(episode.episode_number).padStart(2, '0')} ${statusIcon}</div>
+                                    <div style="font-size: 0.6rem; color: #388e3c; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;" title="${episodeTitle}">${statusText}</div>
                                 </div>
                             `;
                         } else if (isUserRequested && !isUserBlocked) {
