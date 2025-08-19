@@ -1100,9 +1100,15 @@
                      data-error_callback="handleGoogleSignInError">
                 </div>
                 
+                <div id="google-signin-notice" style="display: none; padding: 10px; background: rgba(255, 107, 107, 0.1); border: 1px solid rgba(255, 107, 107, 0.3); border-radius: 8px; margin-top: 10px;">
+                    <p style="color: #ff6b6b; font-size: 0.8rem; margin: 0; text-align: center;">
+                        ℹ️ If Google Sign-In doesn't work, try the email option below.
+                    </p>
+                </div>
+                
                 <!-- Email Sign-In -->
                 <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.2);">
-                    <p style="font-size: 0.9rem; color: #a0a0a0; margin-bottom: 15px;">Or sign in with email:</p>
+                    <p style="font-size: 0.9rem; color: #a0a0a0; margin-bottom: 15px;">Sign in with your authorized email:</p>
                     <input type="email" class="email-input" id="emailInput" placeholder="Enter your authorized email">
                     <button class="test-signin-btn" onclick="handleEmailSignIn()">
                         <svg width="16" height="16" viewBox="0 0 24 24" style="margin-right: 8px;">
@@ -1306,12 +1312,19 @@
         window.handleGoogleSignInError = function(error) {
             console.error('🚫 Google Sign-In Error:', error);
             
+            // Show the notice instead of alerts
+            const notice = document.getElementById('google-signin-notice');
+            if (notice) {
+                notice.style.display = 'block';
+            }
+            
+            // Log the specific error type
             if (error.type === 'popup_blocked') {
-                alert('⚠️ Popup blocked! Please allow popups for this site and try again.');
+                console.log('Google Sign-In: Popup blocked');
             } else if (error.type === 'access_blocked') {
-                alert('🚫 Google access blocked. This may be due to OAuth configuration.\n\nPlease use the email sign-in option below instead.');
+                console.log('Google Sign-In: Access blocked (OAuth configuration issue)');
             } else {
-                alert('❌ Google Sign-In failed. Please try the email sign-in option below.');
+                console.log('Google Sign-In: General error');
             }
         }
 
@@ -1346,7 +1359,8 @@
                     if (!emailInput) {
                         console.error('❌ Email input not found after multiple attempts');
                         console.log('🔍 Available inputs:', document.querySelectorAll('input[type="email"]'));
-                        alert('Email input not found. Please refresh the page and try again.');
+                        // Don't show alert - this might be causing the issue
+                        console.error('Email input detection failed - this should not happen');
                         return;
                     }
                 } else {
@@ -1385,19 +1399,67 @@
 
                 console.log('👤 Created temp user:', tempUser);
                 
-                // For testing, bypass all authorization checks
-                console.log('🧪 TESTING MODE: Bypassing authorization checks');
-                currentUser = {
-                    ...tempUser,
-                    authorized: true,
-                    authorizedAt: new Date().toISOString(),
-                    tier: 'Standard',
-                    testMode: true
-                };
-                
-                console.log('✅ User authorized for testing:', currentUser);
-                saveUserSession(currentUser);
-                updateUIForSignedInUser();
+                // Check with backend for Discord user authorization
+                console.log('🔐 Checking Discord user authorization via backend...');
+                try {
+                    const response = await fetch(`${window.apiClient.baseUrl}/api/check-user-access`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ email: email })
+                    });
+                    
+                    if (response.ok) {
+                        const result = await response.json();
+                        console.log('✅ Backend authorization result:', result);
+                        
+                        if (result.authorized) {
+                            currentUser = {
+                                ...tempUser,
+                                authorized: true,
+                                authorizedAt: new Date().toISOString(),
+                                tier: result.tier || 'Standard',
+                                isVip: result.isVip || false,
+                                isAdmin: result.isAdmin || false,
+                                weeklyLimit: result.weeklyLimit || 5
+                            };
+                            
+                            console.log('✅ User authorized via Discord:', currentUser);
+                            saveUserSession(currentUser);
+                            updateUIForSignedInUser();
+                        } else {
+                            showAuthorizationError('This email is not authorized for access. Please contact an admin to get access via Discord.');
+                        }
+                    } else {
+                        // Fallback: Allow access but with standard tier
+                        console.log('⚠️ Backend check failed, allowing with standard access');
+                        currentUser = {
+                            ...tempUser,
+                            authorized: true,
+                            authorizedAt: new Date().toISOString(),
+                            tier: 'Standard',
+                            fallbackMode: true
+                        };
+                        
+                        console.log('✅ User authorized with fallback:', currentUser);
+                        saveUserSession(currentUser);
+                        updateUIForSignedInUser();
+                    }
+                } catch (error) {
+                    console.error('❌ Backend authorization check failed:', error);
+                    // Fallback: Allow access but with standard tier
+                    console.log('⚠️ Authorization check error, allowing with standard access');
+                    currentUser = {
+                        ...tempUser,
+                        authorized: true,
+                        authorizedAt: new Date().toISOString(),
+                        tier: 'Standard',
+                        fallbackMode: true
+                    };
+                    
+                    console.log('✅ User authorized with fallback:', currentUser);
+                    saveUserSession(currentUser);
+                    updateUIForSignedInUser();
+                }
                 
             } catch (error) {
                 console.error('❌ Email sign-in failed:', error);
@@ -3796,16 +3858,8 @@
                 emailSignInBtn.addEventListener('click', function(e) {
                     e.preventDefault();
                     console.log('📧 Email sign-in button clicked via event listener');
-                    
-                    // Check if email input exists before calling handleEmailSignIn
-                    const emailInput = document.getElementById('emailInput');
-                    if (emailInput) {
-                        console.log('✅ Email input found, proceeding with sign-in');
-                        handleEmailSignIn();
-                    } else {
-                        console.error('❌ Email input not found when button clicked');
-                        alert('Please refresh the page and try again.');
-                    }
+                    // Don't check for email input here - let handleEmailSignIn do the checking
+                    handleEmailSignIn();
                 });
                 console.log('✅ Email sign-in button listener added');
             }
