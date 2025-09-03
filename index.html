@@ -1368,7 +1368,7 @@
                         console.log('🔍 Available inputs:', document.querySelectorAll('input[type="email"]'));
                         // Don't show alert - this might be causing the issue
                         console.error('Email input detection failed - this should not happen');
-                        return;
+                    return;
                     }
                 } else {
                     console.log('✅ Email input found immediately');
@@ -1437,35 +1437,12 @@
                             showAuthorizationError('This email is not authorized for access. Please contact an admin to get access via Discord.');
                         }
                     } else {
-                        // Fallback: Allow access but with standard tier
-                        console.log('⚠️ Backend check failed, allowing with standard access');
-                        currentUser = {
-                            ...tempUser,
-                            authorized: true,
-                            authorizedAt: new Date().toISOString(),
-                            tier: 'Standard',
-                            fallbackMode: true
-                        };
-                        
-                        console.log('✅ User authorized with fallback:', currentUser);
-                        saveUserSession(currentUser);
-                        updateUIForSignedInUser();
+                        console.log('❌ Backend authorization failed');
+                        showAuthorizationError('Unable to verify your access. Please ensure you are added to one of the Discord channels (Standard, Pro, or VIP) and try again.');
                     }
                 } catch (error) {
                     console.error('❌ Backend authorization check failed:', error);
-                    // Fallback: Allow access but with standard tier
-                    console.log('⚠️ Authorization check error, allowing with standard access');
-                    currentUser = {
-                        ...tempUser,
-                        authorized: true,
-                        authorizedAt: new Date().toISOString(),
-                        tier: 'Standard',
-                        fallbackMode: true
-                    };
-                    
-                    console.log('✅ User authorized with fallback:', currentUser);
-                    saveUserSession(currentUser);
-                    updateUIForSignedInUser();
+                    showAuthorizationError('Unable to verify your access. Please ensure you are added to one of the Discord channels (Standard, Pro, or VIP) and try again.');
                 }
                 
             } catch (error) {
@@ -1547,9 +1524,9 @@
             `)}`;
         }
 
-        // Check user authorization - ENHANCED WITH MULTIPLE FALLBACK PATHS
+        // Check user authorization - DISCORD WHITELIST ONLY
         async function checkUserAuthorization(tempUser) {
-            console.log('🔐 Checking authorization for:', tempUser.email);
+            console.log('🔐 Checking Discord whitelist authorization for:', tempUser.email);
             
             // Update button state
             const emailSignInBtn = document.querySelector('.test-signin-btn');
@@ -1559,158 +1536,49 @@
             }
 
             try {
-                console.log('🔗 Checking Firebase connection...');
-                if (!window.db) {
-                    console.error('❌ Firebase not initialized');
-                    showAuthorizationError('Firebase connection failed. Please refresh the page.');
-                    return;
-                }
-
-                const userDocId = tempUser.email.replace(/[.@]/g, '_');
-                console.log('📄 Looking for user document:', userDocId);
+                // Check with backend for Discord user authorization
+                console.log('🔐 Checking Discord user authorization via backend...');
+                const response = await fetch(`${window.apiClient.baseUrl}/api/check-user-access`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: tempUser.email })
+                });
                 
-                // Try multiple paths for user authorization
-                let userDoc = null;
-                let userData = null;
-                
-                // Path 1: Try the artifacts path (new structure)
-                try {
-                    console.log('🔍 Trying artifacts path...');
-                    const userDocRef1 = window.doc(window.db, `artifacts/${APP_ID}/public/data/users`, userDocId);
-                    userDoc = await window.getDoc(userDocRef1);
-                    if (userDoc.exists()) {
-                        userData = userDoc.data();
-                        console.log('✅ Found user in artifacts path:', userData);
-                    }
-                } catch (error) {
-                    console.log('⚠️ Artifacts path failed:', error.message);
-                }
-                
-                // Path 2: Try legacy users collection
-                if (!userData) {
-                    try {
-                        console.log('🔍 Trying legacy users collection...');
-                        const userDocRef2 = window.doc(window.db, 'users', userDocId);
-                        userDoc = await window.getDoc(userDocRef2);
-                        if (userDoc.exists()) {
-                            userData = userDoc.data();
-                            console.log('✅ Found user in legacy collection:', userData);
-                        }
-                    } catch (error) {
-                        console.log('⚠️ Legacy path failed:', error.message);
-                    }
-                }
-                
-                // Path 3: Check Discord automation system for authorized emails (with timeout)
-                if (!userData) {
-                    // Only check local automation if on localhost
-                    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-                    try {
-                        console.log('🤖 Checking Discord automation system...');
-                        // Add timeout to prevent hanging
-                        const controller = new AbortController();
-                        const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 second timeout
-                        
-                        const response = await fetch('http://localhost:3000/check-user', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json',
-                            },
-                            body: JSON.stringify({ email: tempUser.email }),
-                            signal: controller.signal
-                        });
-                        
-                        clearTimeout(timeoutId);
-                        
-                        if (response.ok) {
-                            const discordUserData = await response.json();
-                            if (discordUserData.authorized) {
-                                console.log('✅ User authorized via Discord system:', discordUserData);
-                                userData = {
-                                    tier: discordUserData.tier || 'VIP',
-                                    placeholder: false,
-                                    createdBy: 'discord-system',
-                                    discordAuthorized: true
-                                };
-                            }
-                        }
-                    } catch (error) {
-                        console.log('⚠️ Discord system check failed (using fallback):', error.message);
-                        }
-                    } else {
-                        console.log('🌐 Live site - skipping local Discord automation check');
-                    }
-                }
-                
-                // Path 4: For testing - allow certain test emails
-                const testEmails = [
-                    'dayhill12@gmail.com',
-                    'jennsunlake@gmail.com',
-                    'test@example.com',
-                    'admin@notflix.com'
-                ];
-                
-                if (!userData && testEmails.includes(tempUser.email.toLowerCase())) {
-                    console.log('🧪 Using test mode for authorized email:', tempUser.email);
-                    userData = {
-                        tier: 'VIP',
-                        placeholder: false,
-                        createdBy: 'system',
-                        testMode: true
-                    };
-                }
-                
-                // Check if we found any user data
-                if (!userData) {
-                    console.log('❌ User not found in any path');
+                if (response.ok) {
+                    const result = await response.json();
+                    console.log('✅ Backend authorization result:', result);
                     
-                    // For testing, always allow any email
-                    console.log('🧪 Testing mode - allowing ANY email for testing');
-                    userData = {
-                        tier: 'Standard',
-                        placeholder: false,
-                        createdBy: 'testing-mode',
-                        testMode: true
-                    };
+                    if (result.authorized) {
+                        currentUser = {
+                            ...tempUser,
+                            authorized: true,
+                            authorizedAt: new Date().toISOString(),
+                            tier: result.tier || 'Standard',
+                            isVip: result.isVip || false,
+                            isAdmin: result.isAdmin || false,
+                            weeklyLimit: result.weeklyLimit || 5
+                        };
+                        
+                        console.log('✅ User authorized via Discord:', currentUser);
+                        saveUserSession(currentUser);
+                        updateUIForSignedInUser();
+                    } else {
+                        showAuthorizationError('This email is not authorized for access. Please contact an admin to get added to one of the Discord channels (Standard, Pro, or VIP).');
+                    }
+                } else {
+                    console.log('❌ Backend authorization failed');
+                    showAuthorizationError('Unable to verify your access. Please ensure you are added to one of the Discord channels (Standard, Pro, or VIP) and try again.');
                 }
                 
-                console.log('✅ Found user data:', userData);
-                
-                // More lenient authorization check
-                if (!userData.tier && !userData.placeholder && !userData.createdBy && !userData.testMode) {
-                    console.log('❌ User data incomplete');
-                    showAuthorizationError('Your email exists but is not properly authorized.\n\nPlease contact an administrator.');
-                    return;
-                }
-
-                currentUser = {
-                    ...tempUser,
-                    id: userDocId,
-                    authorized: true,
-                    authorizedAt: new Date().toISOString(),
-                    tier: userData.tier || 'Standard',
-                    testMode: userData.testMode || false
-                };
-
-                console.log('✅ User authorized successfully:', currentUser.email);
-                saveUserSession(currentUser);
-                updateUIForSignedInUser();
-
             } catch (error) {
                 console.error('❌ Authorization check failed:', error);
-                
-                // For localhost or any testing, allow fallback authorization
-                console.log('🏠 Authorization error - using fallback for testing');
-                currentUser = {
-                    ...tempUser,
-                    id: tempUser.email.replace(/[.@]/g, '_'),
-                    authorized: true,
-                    authorizedAt: new Date().toISOString(),
-                    tier: 'Standard',
-                    testMode: true
-                };
-                saveUserSession(currentUser);
-                updateUIForSignedInUser();
+                showAuthorizationError('Unable to verify your access. Please ensure you are added to one of the Discord channels (Standard, Pro, or VIP) and try again.');
+            } finally {
+                // Reset button state
+                if (emailSignInBtn) {
+                    emailSignInBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" style="margin-right: 8px;"><path fill="currentColor" d="M20,8L12,13L4,8V6L12,11L20,6M20,4H4C2.89,4 2,4.89 2,6V18A2,2 0 0,0 4,20H20A2,2 0 0,0 22,18V6C2,4.89 21.1,4 20,4Z"/></svg>Email Sign In';
+                    emailSignInBtn.disabled = false;
+                }
             }
         }
 
@@ -2583,6 +2451,40 @@
             }, 500);
         }
 
+        // ENHANCED: Global cleanup function to refresh all buttons after backend cleanup
+        function refreshButtonsAfterCleanup() {
+            console.log('🔄 Refreshing all buttons after cleanup...');
+            
+            // Get all media cards and refresh their button states
+            const mediaCards = document.querySelectorAll('[data-media-id]');
+            let refreshedCount = 0;
+            
+            mediaCards.forEach(card => {
+                const mediaId = card.dataset.mediaId;
+                const userRequest = userRequests.get(mediaId);
+                
+                // If no user request exists, ensure button is enabled
+                if (!userRequest) {
+                    const button = card.querySelector('.request-btn');
+                    if (button && button.disabled) {
+                        const mediaType = mediaId.startsWith('tv-') ? 'tv' : 'movie';
+                        button.disabled = false;
+                        button.textContent = mediaType === 'tv' ? 'Request Episodes' : 'Request Movie';
+                        button.className = 'request-btn';
+                        refreshedCount++;
+                        console.log(`✅ Refreshed button for ${mediaId}`);
+                    }
+                }
+            });
+            
+            console.log(`🔄 Refreshed ${refreshedCount} buttons after cleanup`);
+        }
+        
+        // ENHANCED: Start periodic button cleanup check (every 2 minutes)  
+        setInterval(() => {
+            refreshButtonsAfterCleanup();
+        }, 2 * 60 * 1000); // Every 2 minutes
+
         // Utility function to calculate countdown from date
         function calculateCountdownFromDate(retryAfterISO) {
             const now = new Date();
@@ -2649,8 +2551,32 @@
             
             // Handle TV shows with requests
             if (mediaType === 'tv' && userRequest) {
+                // CRITICAL: Check if TV request is really old and should be cleared
+                const requestAge = Date.now() - new Date(userRequest.timestamp?.seconds * 1000 || userRequest.lastUpdated || Date.now());
+                const isReallyOld = requestAge > 24 * 60 * 60 * 1000; // 24 hours old
+                
+                if (isReallyOld && ['pending', 'processing', 'error'].includes(userRequest.status)) {
+                    console.log(`🗑️ Clearing old TV ${userRequest.status} request for ${userRequest.title} (${Math.round(requestAge / (60 * 60 * 1000))} hours old)`);
+                    // Clear this old request from local storage to unblock the button
+                    userRequests.delete(mediaId);
+                    // Don't show any status - allow fresh request
+                    buttonDisabled = false;
+                    buttonText = 'Request Episodes';
+                    buttonClass = 'request-btn';
+                    
+                    // CRITICAL: Also update the button immediately in the DOM
+                    setTimeout(() => {
+                        const buttonElement = document.getElementById(`btn-${mediaId}`);
+                        if (buttonElement) {
+                            buttonElement.disabled = false;
+                            buttonElement.textContent = 'Request Episodes';
+                            buttonElement.className = 'request-btn';
+                            console.log(`✅ Updated TV button for ${userRequest.title} - now clickable again`);
+                        }
+                    }, 100);
+                }
                 // Check if the request failed or is not available
-                if (userRequest.status === 'not_available' || userRequest.status === 'error') {
+                else if (userRequest.status === 'not_available' || userRequest.status === 'error') {
                     // Show error status like movies
                     buttonDisabled = true;
                     
@@ -2679,18 +2605,42 @@
                 buttonText = 'Request More Episodes';
                 }
             } else if (mediaType === 'movie' && userRequest) {
+                // CRITICAL: Check if request is really old and should be cleared
+                const requestAge = Date.now() - new Date(userRequest.timestamp?.seconds * 1000 || userRequest.lastUpdated || Date.now());
+                const isReallyOld = requestAge > 24 * 60 * 60 * 1000; // 24 hours old
+                
+                if (isReallyOld && ['pending', 'processing', 'error'].includes(userRequest.status)) {
+                    console.log(`🗑️ Clearing old ${userRequest.status} request for ${userRequest.title} (${Math.round(requestAge / (60 * 60 * 1000))} hours old)`);
+                    // Clear this old request from local storage to unblock the button
+                    userRequests.delete(mediaId);
+                    // Don't show any status - allow fresh request
+                    buttonDisabled = false;
+                    buttonText = mediaType === 'tv' ? 'Request Episodes' : 'Request Movie';
+                    buttonClass = 'request-btn';
+                    
+                    // CRITICAL: Also update the button immediately in the DOM
+                    setTimeout(() => {
+                        const buttonElement = document.getElementById(`btn-${mediaId}`);
+                        if (buttonElement) {
+                            buttonElement.disabled = false;
+                            buttonElement.textContent = mediaType === 'tv' ? 'Request Episodes' : 'Request Movie';
+                            buttonElement.className = 'request-btn';
+                            console.log(`✅ Updated button for ${userRequest.title} - now clickable again`);
+                        }
+                    }, 100);
+                } else {
                 buttonDisabled = true;
                 switch (userRequest.status) {
                     case 'pending':
-                        // Allow pending items to be clicked again (ultra aggressive - 30 seconds)
+                        // ULTRA AGGRESSIVE: Allow pending items to be clicked again after 10 seconds
                         const pendingAge = Date.now() - new Date(userRequest.timestamp?.seconds * 1000 || userRequest.lastUpdated || Date.now());
-                        if (pendingAge > 30 * 1000) { // 30 seconds old
+                        if (pendingAge > 10 * 1000) { // 10 seconds old
                             buttonText = 'Request Movie 🔄';
                             buttonClass = 'request-btn retry-enabled';
                             buttonDisabled = false;
                         } else {
-                            buttonText = 'Pending ⏳';
-                            buttonClass = 'request-btn pending';
+                        buttonText = 'Pending ⏳';
+                        buttonClass = 'request-btn pending';
                         }
                         break;
                     case 'approved':
@@ -2745,6 +2695,7 @@
                             buttonClass = 'request-btn processing';
                         }
                         break;
+                    }
                 }
             }
             
@@ -3305,17 +3256,46 @@
                 const existingRequest = userRequests.get(mediaId);
                 const existingEpisodes = existingRequest?.selectedEpisodes || {};
                 
-                // Get global availability data (from all users) for partial availability support
+                // ENHANCED: Get global availability data and Plex data with better error handling
                 let globalAvailability = null;
+                let globallyAvailableEpisodes = {};
+                let plexAvailableEpisodes = {};
+                
                 try {
                     globalAvailability = await window.apiClient.getGlobalAvailability(tvId, 'tv');
-                    console.log('🌍 Global availability data:', globalAvailability);
+                    console.log('🌍 Global availability data loaded:', globalAvailability);
+                    
+                    globallyAvailableEpisodes = globalAvailability?.availableEpisodes || {};
+                    plexAvailableEpisodes = globalAvailability?.plexEpisodes || {};
+                    
+                    console.log('📺 Globally available episodes:', globallyAvailableEpisodes);
+                    console.log('📦 Plex available episodes:', plexAvailableEpisodes);
+                    
                 } catch (error) {
-                    console.warn('Failed to get global availability:', error.message);
+                    console.warn('⚠️ Failed to get global availability, checking localStorage fallback:', error.message);
+                    
+                    // Fallback: Try to get Plex data from the media card
+                    const mediaCard = document.querySelector(`[data-media-id="tv-${tvId}"]`);
+                    if (mediaCard) {
+                        if (mediaCard.dataset.availableEpisodes) {
+                            try {
+                                globallyAvailableEpisodes = JSON.parse(mediaCard.dataset.availableEpisodes);
+                                console.log('📂 Fallback: Found globally available episodes from card data');
+                            } catch (e) {
+                                console.warn('Failed to parse available episodes from card data');
+                            }
+                        }
+                        
+                        if (mediaCard.dataset.plexEpisodes) {
+                            try {
+                                plexAvailableEpisodes = JSON.parse(mediaCard.dataset.plexEpisodes);
+                                console.log('📦 Fallback: Found Plex episodes from card data');
+                            } catch (e) {
+                                console.warn('Failed to parse Plex episodes from card data');
+                            }
+                        }
+                    }
                 }
-                
-                const globallyAvailableEpisodes = globalAvailability?.availableEpisodes || {};
-                const plexAvailableEpisodes = globalAvailability?.plexEpisodes || {};
                 
                 let contentHTML = '';
                 
@@ -3323,8 +3303,49 @@
                 const hasUserRequests = existingRequest && Object.keys(existingEpisodes).length > 0;
                 const hasGlobalAvailability = globalAvailability && Object.keys(globallyAvailableEpisodes).length > 0;
                 
+                // ENHANCED: Debug summary for episode color verification
+                let totalEpisodes = 0;
+                let totalPlexEpisodes = 0;
+                let totalGlobalEpisodes = 0;
+                let totalUserEpisodes = 0;
+                
+                // Count episodes for each season to show summary
+                for (const season of tvShowDetails.seasons.filter(s => s.season_number > 0)) {
+                    const seasonKey = `S${String(season.season_number).padStart(2, '0')}`;
+                    const plexSeasonEpisodes = plexAvailableEpisodes[seasonKey] || [];
+                    const globalSeasonEpisodes = globallyAvailableEpisodes[seasonKey] || [];
+                    const userSeasonEpisodes = existingEpisodes[seasonKey] || [];
+                    
+                    totalEpisodes += season.episode_count || 0;
+                    totalPlexEpisodes += plexSeasonEpisodes.length;
+                    totalGlobalEpisodes += globalSeasonEpisodes.length;
+                    totalUserEpisodes += userSeasonEpisodes.length;
+                }
+                
+                console.log(`📊 Episode Summary for ${tvShowDetails.name}:`, {
+                    totalEpisodes,
+                    totalPlexEpisodes,
+                    totalGlobalEpisodes,
+                    totalUserEpisodes,
+                    plexData: plexAvailableEpisodes,
+                    globalData: globallyAvailableEpisodes
+                });
+                
                 if (hasUserRequests || hasGlobalAvailability) {
                     let headerContent = '';
+                    
+                    // Show episode breakdown
+                    headerContent += `
+                        <div style="margin-bottom: 15px; padding: 10px; background: rgba(255, 255, 255, 0.05); border-radius: 8px;">
+                            <h4 style="margin: 0 0 8px 0; color: #4ecdc4;">Episode Status Overview:</h4>
+                            <div style="font-size: 0.85rem; line-height: 1.6;">
+                                ${totalPlexEpisodes > 0 ? `• <span style="color: #28a745; font-weight: 600;">${totalPlexEpisodes} episodes</span> available in Plex 📦<br>` : ''}
+                                ${totalGlobalEpisodes > 0 ? `• <span style="color: #66bb6a; font-weight: 600;">${totalGlobalEpisodes} episodes</span> downloaded globally 🌍<br>` : ''}
+                                ${totalUserEpisodes > 0 ? `• <span style="color: #ffc107; font-weight: 600;">${totalUserEpisodes} episodes</span> you've requested ⏳<br>` : ''}
+                                • <span style="color: #ffffff; font-weight: 600;">${Math.max(0, totalEpisodes - Math.max(totalPlexEpisodes, totalGlobalEpisodes, totalUserEpisodes))} episodes</span> available to request
+                            </div>
+                        </div>
+                    `;
                     
                     if (hasGlobalAvailability) {
                         const globalEpisodeCount = globalAvailability.availableEpisodeCount || 0;
@@ -3462,6 +3483,21 @@
                         const isPlexAvailable = plexAvailableSeasonEpisodes.includes(episode.episode_number);
                         const isUserBlocked = userBlockedEpisodes.includes(episode.episode_number);
                         const isGloballyBlocked = globallyBlockedEpisodes.includes(episode.episode_number);
+                        
+                        // ENHANCED: Debug logging for episode colors
+                        if (episode.episode_number <= 3) { // Log first 3 episodes for debugging
+                            console.log(`🎬 S${season.season_number}E${episode.episode_number}:`, {
+                                title: episodeTitle,
+                                isPlexAvailable,
+                                isGloballyAvailable,
+                                isUserRequested,
+                                isUserBlocked,
+                                isGloballyBlocked,
+                                willShow: isPlexAvailable ? 'GREEN (Plex)' : 
+                                         isGloballyAvailable ? 'LIGHT GREEN (Downloaded)' : 
+                                         isUserRequested && !isUserBlocked ? 'YELLOW (Pending)' : 'WHITE (Available)'
+                            });
+                        }
                         
                         if (isPlexAvailable) {
                             // ENHANCED: Plex available episode - prominent green highlighting with animation
