@@ -2760,8 +2760,8 @@
                     case 'added_to_client':
                         // If Plex shows available, override added_to_client status
                         if (globalAvailability && globalAvailability.plexAvailable) {
-                            buttonText = 'Request Movie';  // Show as normal when in Plex
-                            buttonClass = 'request-btn';
+                            buttonText = 'Already Available 📦 (Click to Request)';  // Show as available
+                            buttonClass = 'request-btn already-available-clickable';
                             buttonDisabled = false;
                         } else {
                             buttonText = 'Added to Queue 📥';
@@ -2771,8 +2771,8 @@
                     case 'downloading':
                         // If Plex shows available, override downloading status
                         if (globalAvailability && globalAvailability.plexAvailable) {
-                            buttonText = 'Request Movie';  // Show as normal when in Plex
-                            buttonClass = 'request-btn';
+                            buttonText = 'Already Available 📦 (Click to Request)';  // Show as available
+                            buttonClass = 'request-btn already-available-clickable';
                             buttonDisabled = false;
                         } else {
                             buttonText = 'Downloading ⬇️';  // Only show downloading if not in Plex
