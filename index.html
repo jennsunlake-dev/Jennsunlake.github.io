@@ -8,6 +8,7 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="apple-mobile-web-app-title" content="Notflix Portal">
     <title>Plex Request Portal</title>
+    <!-- v2: Episode re-request feature enabled -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
@@ -1998,6 +1999,73 @@
                 searchResults.innerHTML = '<div class="no-results"><h3>🔍 Search Temporarily Unavailable</h3><p>Check back in a few minutes - we\'re working on it!</p></div>';
             }
         }
+        
+        // ENHANCED: Check Plex connection status
+        async function checkPlexConnection() {
+            try {
+                console.log('🔍 Checking Plex connection status...');
+                const response = await fetch('/api/test-plex');
+                const data = await response.json();
+                
+                // Update Plex status indicator
+                updatePlexStatusIndicator(data.connected, data.plexUrl, data.error);
+                
+            } catch (error) {
+                console.error('❌ Plex connection check failed:', error);
+                updatePlexStatusIndicator(false, null, error.message);
+            }
+        }
+        
+        // Update Plex status indicator in the UI
+        function updatePlexStatusIndicator(connected, plexUrl, error) {
+            // Create status indicator if it doesn't exist
+            let indicator = document.getElementById('plexStatus');
+            if (!indicator) {
+                indicator = document.createElement('div');
+                indicator.id = 'plexStatus';
+                indicator.style.cssText = `
+                    position: fixed;
+                    top: 10px;
+                    right: 10px;
+                    padding: 8px 12px;
+                    border-radius: 6px;
+                    font-size: 0.8rem;
+                    font-weight: 600;
+                    z-index: 1000;
+                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+                    transition: all 0.3s ease;
+                `;
+                document.body.appendChild(indicator);
+            }
+            
+            if (connected) {
+                indicator.innerHTML = '🟢 Plex Connected';
+                indicator.style.background = 'rgba(40, 167, 69, 0.9)';
+                indicator.style.color = 'white';
+                indicator.title = `Connected to Plex at ${plexUrl}`;
+                console.log('✅ Plex status: Connected');
+            } else {
+                indicator.innerHTML = '🔴 Plex Disconnected';
+                indicator.style.background = 'rgba(220, 53, 69, 0.9)';
+                indicator.style.color = 'white';
+                indicator.title = `Plex connection failed: ${error || 'Unknown error'}`;
+                console.warn('❌ Plex status: Disconnected');
+            }
+        }
+        
+        // Test direct Plex search functionality
+        window.testPlexSearch = async function(tmdbId, type) {
+            try {
+                console.log(`🔍 Testing direct Plex search for ${type} ${tmdbId}`);
+                const response = await fetch(`/api/plex-search/${tmdbId}/${type}`);
+                const data = await response.json();
+                console.log('📊 Plex search result:', data);
+                return data;
+            } catch (error) {
+                console.error('❌ Plex search test failed:', error);
+                return { available: false, error: error.message };
+            }
+        };
 
         // Remove the old performSearch alias to avoid confusion
         // ALIAS FOR BACKWARDS COMPATIBILITY - REMOVED
@@ -2075,6 +2143,7 @@
                     loadGlobalStatuses();
                     loadGlobalPlexAvailability();
                     startGlobalStatusPolling();
+                    checkPlexConnection(); // Test Plex connectivity
                 }, 2000); // Wait 2 seconds for DOM to be ready
                 
             } catch (error) {
@@ -2592,8 +2661,9 @@
                             episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5; color: #28a745; font-weight: 600;">✅ Countdown expired - You can try requesting again!</div>`;
                         }
                     } else {
-                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 6px; border: 1px solid rgba(255, 107, 107, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff6b6b; font-weight: 600;">${userRequest.status === 'not_available' ? '⏰ Check back in 5 days' : '⏰ Check back in 5 days'}</div>`;
-                        buttonText = userRequest.status === 'not_available' ? 'Check back in 5 days ⏰' : 'Check back in 5 days ⏰';
+                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 165, 0, 0.1); border-radius: 6px; border: 1px solid rgba(255, 165, 0, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff8c00; font-weight: 600;">${userRequest.status === 'not_available' ? '⏰ Originally suggested: Check back in 5 days - But you can try again!' : '⏰ Originally suggested: Check back in 5 days - But you can try again!'}</div>`;
+                        buttonText = userRequest.status === 'not_available' ? 'Try Again Now 🔄' : 'Try Again Now 🔄';
+                        buttonDisabled = false; // Allow retry
                     }
                     buttonClass = `request-btn ${userRequest.status}`;
                 } else if (userRequest.selectedEpisodes) {
@@ -2659,7 +2729,8 @@
                                 buttonDisabled = false;
                             }
                         } else {
-                            buttonText = 'Check back in 5 days ⏰';
+                            buttonText = 'Try Again Now 🔄';
+                            buttonDisabled = false; // Allow retry
                             buttonClass = 'request-btn not_available';
                         }
                         break;
@@ -2703,17 +2774,19 @@
             if (globalAvailability) {
                 if (globalAvailability.globalStatus === 'available') {
                     if (mediaType === 'movie') {
-                        buttonDisabled = true;
-                        buttonText = 'Available ✅';
-                        buttonClass = 'request-btn approved';
+                        // ENHANCED: Allow re-requesting even when movie is available
+                        buttonDisabled = false; // Allow requests anyway
+                        buttonText = 'Request Movie (Available in Plex) 🔄';
+                        buttonClass = 'request-btn available-but-requestable';
                         const source = globalAvailability.plexAvailable ? 'in your Plex library' : 'from previous request';
-                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5; color: #28a745; font-weight: 600;">📦 Already available ${source}</div>`;
+                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5; color: #28a745; font-weight: 600;">📦 Already available ${source} - But you can request again if needed!</div>`;
                     } else {
-                        buttonDisabled = true;
-                        buttonText = 'All Episodes Available ✅';
-                        buttonClass = 'request-btn approved';
+                        // ENHANCED: Allow re-requesting even when all episodes are available
+                        buttonDisabled = false; // Allow requests anyway
+                        buttonText = 'Request Episodes (Available in Plex) 🔄';
+                        buttonClass = 'request-btn available-but-requestable';
                         const source = globalAvailability.plexAvailable ? 'in your Plex library' : 'from previous requests';
-                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5; color: #28a745; font-weight: 600;">📦 All episodes available ${source}</div>`;
+                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5; color: #28a745; font-weight: 600;">📦 All episodes available ${source} - But you can request again if needed!</div>`;
                     }
                 } else if (globalAvailability.globalStatus === 'partially_available' && mediaType === 'tv') {
                     buttonDisabled = false;
@@ -2750,9 +2823,10 @@
                         buttonClass = 'request-btn not_available';
                         episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 6px; border: 1px solid rgba(255, 107, 107, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff6b6b; font-weight: 600;">⏰ ${globalAvailability.countdownInfo.message} - Content may become available soon</div>`;
                     } else {
-                        buttonText = 'Check back in 5 days ⏰';
-                        buttonClass = 'request-btn not_available';
-                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 107, 107, 0.1); border-radius: 6px; border: 1px solid rgba(255, 107, 107, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff6b6b; font-weight: 600;">⏰ Check back in 5 days</div>`;
+                        buttonText = 'Try Again Now 🔄';
+                        buttonClass = 'request-btn retry-available';
+                        buttonDisabled = false; // Allow retry
+                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(255, 165, 0, 0.1); border-radius: 6px; border: 1px solid rgba(255, 165, 0, 0.3); font-size: 0.8rem; line-height: 1.5; color: #ff8c00; font-weight: 600;">⏰ Originally suggested: Check back in 5 days - But you can try again!</div>`;
                     }
                 }
             }
@@ -3074,7 +3148,7 @@
                 // Check if the request failed or is not available
                 if (userRequest.status === 'not_available' || userRequest.status === 'error') {
                     // Show error status instead of episode info
-                    statusDiv.innerHTML = `<span style="color: #ff6b6b; font-weight: 600;">${userRequest.status === 'not_available' ? '⏰ Check back in 5 days' : '⏰ Check back in 5 days'}</span>`;
+                    statusDiv.innerHTML = `<span style="color: #ff8c00; font-weight: 600;">${userRequest.status === 'not_available' ? '⏰ Originally suggested: Check back in 5 days - But you can try again!' : '⏰ Originally suggested: Check back in 5 days - But you can try again!'}</span>`;
                     statusDiv.style.display = 'block';
                     statusDiv.style.background = 'rgba(255, 107, 107, 0.1)';
                     statusDiv.style.borderColor = 'rgba(255, 107, 107, 0.3)';
@@ -3113,7 +3187,8 @@
                     button.textContent = 'Approved ✅';
                     break;
                 case 'not_available':
-                    button.textContent = 'Check back in 5 days ⏰';
+                    button.textContent = 'Try Again Now 🔄';
+                    button.disabled = false; // Allow retry
                     break;
                 case 'no_storage':
                     button.textContent = 'No Storage 💾';
@@ -3463,15 +3538,7 @@
                                     <span style="display: inline-block; padding: 2px 6px; background: rgba(255, 255, 255, 0.2); border-radius: 4px; font-size: 0.7rem; margin-left: 8px;">${seasonDetails.episodes.length} episodes</span>
                                     ${seasonStatusHTML}
                                 </div>
-                                ${availableEpisodes.length > 0 ? `
-                                <button onclick="toggleAllEpisodes(${season.season_number})" style="padding: 6px 12px; background: linear-gradient(45deg, #ff6b6b, #ff8e53); border: none; border-radius: 6px; color: #ffffff; font-size: 0.8rem; font-weight: 600; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation;">
-                                    Select All Available
-                                </button>
-                                ` : `
-                                <span style="padding: 6px 12px; background: rgba(40, 167, 69, 0.2); border: 1px solid rgba(40, 167, 69, 0.5); border-radius: 6px; color: #28a745; font-size: 0.8rem; font-weight: 600;">
-                                    All Episodes Requested
-                                </span>
-                                `}
+                                <!-- Select All button removed per request -->
                             </div>
                             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(90px, 1fr)); gap: 8px;" id="episodes-${season.season_number}">
                     `;
@@ -3500,21 +3567,21 @@
                         }
                         
                         if (isPlexAvailable) {
-                            // ENHANCED: Plex available episode - prominent green highlighting with animation
+                            // ENHANCED: Plex available episode - now clickable for re-requesting
                             contentHTML += `
-                                <div data-season="${season.season_number}" data-episode="${episode.episode_number}" style="padding: 8px 6px; background: linear-gradient(135deg, rgba(40, 167, 69, 0.4), rgba(72, 199, 116, 0.3)); border: 2px solid #28a745; border-radius: 8px; color: #ffffff; font-size: 0.8rem; text-align: center; position: relative; box-shadow: 0 0 10px rgba(40, 167, 69, 0.4); animation: pulse-green 2s infinite;">
+                                <div onclick="toggleEpisode(${season.season_number}, ${episode.episode_number})" data-season="${season.season_number}" data-episode="${episode.episode_number}" style="padding: 8px 6px; background: linear-gradient(135deg, rgba(40, 167, 69, 0.4), rgba(72, 199, 116, 0.3)); border: 2px solid #28a745; border-radius: 8px; color: #ffffff; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease; text-align: center; position: relative; box-shadow: 0 0 10px rgba(40, 167, 69, 0.4); animation: pulse-green 2s infinite; -webkit-tap-highlight-color: transparent; touch-action: manipulation;">
                                     <div style="font-weight: 700; text-shadow: 0 1px 2px rgba(0,0,0,0.3);">E${String(episode.episode_number).padStart(2, '0')} ✅📦</div>
-                                    <div style="font-size: 0.6rem; color: #c8e6c9; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;" title="${episodeTitle}">Available in Plex</div>
+                                    <div style="font-size: 0.6rem; color: #c8e6c9; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600;" title="${episodeTitle}">Available (Can Re-Request)</div>
                                 </div>
                             `;
                         } else if (isGloballyAvailable) {
-                            // ENHANCED: Globally available episode - light green highlighting 
+                            // ENHANCED: Globally available episode - now clickable for re-requesting
                             const statusIcon = isUserRequested && isUserBlocked ? '✅' : '🌍';
                             const statusText = isUserRequested && isUserBlocked ? 'Available' : 'Downloaded';
                             contentHTML += `
-                                <div data-season="${season.season_number}" data-episode="${episode.episode_number}" style="padding: 8px 6px; background: linear-gradient(135deg, rgba(40, 167, 69, 0.25), rgba(76, 175, 80, 0.2)); border: 1px solid rgba(40, 167, 69, 0.6); border-radius: 6px; color: #2e7d32; font-size: 0.8rem; text-align: center; position: relative; box-shadow: 0 0 5px rgba(40, 167, 69, 0.2);">
+                                <div onclick="toggleEpisode(${season.season_number}, ${episode.episode_number})" data-season="${season.season_number}" data-episode="${episode.episode_number}" style="padding: 8px 6px; background: linear-gradient(135deg, rgba(40, 167, 69, 0.25), rgba(76, 175, 80, 0.2)); border: 1px solid rgba(40, 167, 69, 0.6); border-radius: 6px; color: #2e7d32; font-size: 0.8rem; cursor: pointer; transition: all 0.2s ease; text-align: center; position: relative; box-shadow: 0 0 5px rgba(40, 167, 69, 0.2); -webkit-tap-highlight-color: transparent; touch-action: manipulation;">
                                     <div style="font-weight: 600;">E${String(episode.episode_number).padStart(2, '0')} ${statusIcon}</div>
-                                    <div style="font-size: 0.6rem; color: #388e3c; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;" title="${episodeTitle}">${statusText}</div>
+                                    <div style="font-size: 0.6rem; color: #388e3c; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500;" title="${episodeTitle}">${statusText} (Can Re-Request)</div>
                                 </div>
                             `;
                         } else if (isUserRequested && !isUserBlocked) {
@@ -3625,23 +3692,27 @@
             
             const isUserBlocked = shouldBlockUserEpisodes && existingSeasonEpisodes.includes(episodeNumber);
             
+            // Allow re-requesting episodes even if they're marked as available
+            // This was changed per user request to allow requests despite availability status
+            /*
             if (isPlexAvailable) {
                 // Episode is available in Plex - can't request again
                 alert(`Episode ${episodeNumber} of Season ${seasonNumber} is already available in your Plex library and cannot be requested.`);
                 return;
             }
-            
+
             if (isGloballyAvailable) {
                 // Episode is globally available - can't request again
                 alert(`Episode ${episodeNumber} of Season ${seasonNumber} is already available globally and cannot be requested again.`);
                 return;
             }
-            
+
             if (isUserBlocked) {
                 // Episode is completed/available by user - can't request again
                 alert(`Episode ${episodeNumber} of Season ${seasonNumber} is already available from your previous request and cannot be requested again.`);
                 return;
             }
+            */
             
             if (!selectedEpisodes[seasonNumber]) {
                 selectedEpisodes[seasonNumber] = [];
@@ -4354,13 +4425,33 @@
             }
         }
 
-        // Start polling for global status updates
+        // ENHANCED: Start polling for global status updates with active Plex checking
         function startGlobalStatusPolling() {
-            // Poll every 30 seconds for status updates
+            // Poll every 15 seconds for more responsive updates
             setInterval(() => {
                 loadGlobalStatuses();
                 loadGlobalPlexAvailability();
-            }, 30000);
+                checkPlexConnection(); // Check Plex status periodically
+                
+                // Clear any cached Plex data to ensure fresh checks
+                localStorage.removeItem('plexCache');
+                
+            }, 15000); // Increased frequency to 15 seconds
+            
+            // Also do an immediate refresh every 2 minutes for active checking
+            setInterval(() => {
+                console.log('🔄 Active Plex refresh - clearing all cache');
+                // Force refresh of all availability data
+                document.querySelectorAll('.media-card').forEach(card => {
+                    // Remove cached data to force fresh checks
+                    delete card.dataset.globalAvailability;
+                    delete card.dataset.plexEpisodes;
+                });
+                
+                // Reload everything fresh
+                loadGlobalStatuses();
+                loadGlobalPlexAvailability();
+            }, 120000); // Every 2 minutes
             
             console.log('🔄 Global status polling started (30s intervals)');
         }
