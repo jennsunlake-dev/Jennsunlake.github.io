@@ -2746,13 +2746,27 @@
                         buttonDisabled = false;
                         break;
                     case 'added_to_client':
-                        buttonText = 'Added to Queue 📥';
-                        buttonClass = 'request-btn added_to_queue';
+                        // If Plex shows available, override added_to_client status
+                        if (globalAvailability && globalAvailability.plexAvailable) {
+                            buttonText = 'Request Movie';  // Show as normal when in Plex
+                            buttonClass = 'request-btn';
+                            buttonDisabled = false;
+                        } else {
+                            buttonText = 'Added to Queue 📥';
+                            buttonClass = 'request-btn added_to_queue';
+                        }
                         break;
                     case 'downloading':
-                        buttonText = 'Request Movie';  // Allow re-request
-                        buttonClass = 'request-btn';
-                        buttonDisabled = false;
+                        // If Plex shows available, override downloading status
+                        if (globalAvailability && globalAvailability.plexAvailable) {
+                            buttonText = 'Request Movie';  // Show as normal when in Plex
+                            buttonClass = 'request-btn';
+                            buttonDisabled = false;
+                        } else {
+                            buttonText = 'Downloading ⬇️';  // Only show downloading if not in Plex
+                            buttonClass = 'request-btn downloading';
+                            buttonDisabled = true;
+                        }
                         break;
                     case 'added':  // Legacy status, map to new one
                         buttonText = 'Added to Queue 📥';
@@ -3201,10 +3215,24 @@
                     button.textContent = 'Already Available 📦';
                     break;
                 case 'added_to_client':
-                    button.textContent = 'Added to Queue 📥';
+                    // Check if actually in Plex
+                    if (window.globalAvailability && window.globalAvailability.plexAvailable) {
+                        button.textContent = 'Request Movie';
+                        button.disabled = false;
+                        button.className = 'request-btn';
+                    } else {
+                        button.textContent = 'Added to Queue 📥';
+                    }
                     break;
                 case 'downloading':
-                    button.textContent = 'Downloading ⬇️';
+                    // Check if actually in Plex
+                    if (window.globalAvailability && window.globalAvailability.plexAvailable) {
+                        button.textContent = 'Request Movie';
+                        button.disabled = false;
+                        button.className = 'request-btn';
+                    } else {
+                        button.textContent = 'Downloading ⬇️';
+                    }
                     break;
                 case 'error':
                     button.textContent = 'Retry Request ⚠️';
