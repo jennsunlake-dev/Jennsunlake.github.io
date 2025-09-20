@@ -2004,12 +2004,14 @@
         async function checkPlexConnection() {
             try {
                 console.log('🔍 Checking Plex connection status...');
-                const response = await fetch('/api/test-plex');
+                // Use the API base URL for the live site
+                const baseUrl = window.location.hostname === 'localhost' ? '' : 'https://notflix-request.vercel.app';
+                const response = await fetch(`${baseUrl}/api/test-plex`);
                 const data = await response.json();
-                
+
                 // Update Plex status indicator
                 updatePlexStatusIndicator(data.connected, data.plexUrl, data.error);
-                
+
             } catch (error) {
                 console.error('❌ Plex connection check failed:', error);
                 updatePlexStatusIndicator(false, null, error.message);
@@ -2057,7 +2059,8 @@
         window.testPlexSearch = async function(tmdbId, type) {
             try {
                 console.log(`🔍 Testing direct Plex search for ${type} ${tmdbId}`);
-                const response = await fetch(`/api/plex-search/${tmdbId}/${type}`);
+                const baseUrl = window.location.hostname === 'localhost' ? '' : 'https://notflix-request.vercel.app';
+                const response = await fetch(`${baseUrl}/api/plex-search/${tmdbId}/${type}`);
                 const data = await response.json();
                 console.log('📊 Plex search result:', data);
                 return data;
