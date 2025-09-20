@@ -672,6 +672,18 @@
             background: linear-gradient(45deg, #00ffff, #1e90ff);
         }
 
+        .request-btn.already-available-clickable {
+            background: linear-gradient(45deg, #28a745, #4caf50);
+            cursor: pointer;
+            opacity: 0.9;
+        }
+
+        .request-btn.already-available-clickable:hover {
+            opacity: 1;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
+        }
+
         .request-btn.added_to_queue {
             background: linear-gradient(45deg, #ff8c00, #ffa500);
         }
@@ -3212,7 +3224,9 @@
                     button.textContent = 'No Storage 💾';
                     break;
                 case 'already_exists':
-                    button.textContent = 'Already Available 📦';
+                    button.textContent = 'Already Available 📦 (Click to Request Anyway)';
+                    button.disabled = false; // Allow re-requesting even if available
+                    button.className = 'request-btn already-available-clickable';
                     break;
                 case 'added_to_client':
                     // Check if actually in Plex
@@ -3258,7 +3272,9 @@
                     button.textContent = 'Added ✅';
                     break;
                 case 'available':
-                    button.textContent = 'Already Available 📦';
+                    button.textContent = 'Already Available 📦 (Click to Request)';
+                    button.disabled = false; // Allow re-requesting even if available
+                    button.className = 'request-btn already-available-clickable';
                     break;
                 default:
                     button.textContent = `${status} 📊`;
@@ -4138,10 +4154,10 @@
                     
                     mediaCard.appendChild(badge);
                     
-                    // Update button to show already available
-                    button.textContent = 'Already Available 📦';
-                    button.disabled = true;
-                    button.className = 'request-btn already_exists';
+                    // Update button to show already available but keep it clickable
+                    button.textContent = 'Already Available 📦 (Click to Request)';
+                    button.disabled = false; // Keep button clickable even if available
+                    button.className = 'request-btn already-available-clickable';
                 }
             });
         }
