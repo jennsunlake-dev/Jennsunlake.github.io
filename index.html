@@ -672,18 +672,6 @@
             background: linear-gradient(45deg, #00ffff, #1e90ff);
         }
 
-        .request-btn.already-available-clickable {
-            background: linear-gradient(45deg, #28a745, #4caf50);
-            cursor: pointer;
-            opacity: 0.9;
-        }
-
-        .request-btn.already-available-clickable:hover {
-            opacity: 1;
-            transform: translateY(-2px);
-            box-shadow: 0 6px 20px rgba(40, 167, 69, 0.4);
-        }
-
         .request-btn.added_to_queue {
             background: linear-gradient(45deg, #ff8c00, #ffa500);
         }
@@ -2014,19 +2002,14 @@
         
         // ENHANCED: Check Plex connection status
         async function checkPlexConnection() {
-            // SIMPLIFIED: Just show as connected on production since Plex is working through backend
-            if (window.location.hostname !== 'localhost') {
-                // On production, Plex is handled by backend - just show as connected
-                updatePlexStatusIndicator(true, 'Plex Server', null);
-                return;
-            }
-
-            // Only check actual connection on localhost
             try {
                 console.log('🔍 Checking Plex connection status...');
                 const response = await fetch('/api/test-plex');
                 const data = await response.json();
+                
+                // Update Plex status indicator
                 updatePlexStatusIndicator(data.connected, data.plexUrl, data.error);
+                
             } catch (error) {
                 console.error('❌ Plex connection check failed:', error);
                 updatePlexStatusIndicator(false, null, error.message);
@@ -2074,8 +2057,7 @@
         window.testPlexSearch = async function(tmdbId, type) {
             try {
                 console.log(`🔍 Testing direct Plex search for ${type} ${tmdbId}`);
-                const baseUrl = window.location.hostname === 'localhost' ? '' : 'https://notflix-request.vercel.app';
-                const response = await fetch(`${baseUrl}/api/plex-search/${tmdbId}/${type}`);
+                const response = await fetch(`/api/plex-search/${tmdbId}/${type}`);
                 const data = await response.json();
                 console.log('📊 Plex search result:', data);
                 return data;
@@ -2717,19 +2699,23 @@
                         }
                     }, 100);
                 } else {
-                // FIX: Keep most buttons enabled for better UX
-                buttonDisabled = false;
+                buttonDisabled = true;
                 switch (userRequest.status) {
                     case 'pending':
-                        // Always allow clicking on pending items
-                        buttonText = 'Request Movie';
-                        buttonClass = 'request-btn';
-                        buttonDisabled = false;
+                        // ULTRA AGGRESSIVE: Allow pending items to be clicked again after 10 seconds
+                        const pendingAge = Date.now() - new Date(userRequest.timestamp?.seconds * 1000 || userRequest.lastUpdated || Date.now());
+                        if (pendingAge > 10 * 1000) { // 10 seconds old
+                            buttonText = 'Request Movie 🔄';
+                            buttonClass = 'request-btn retry-enabled';
+                            buttonDisabled = false;
+                        } else {
+                        buttonText = 'Pending ⏳';
+                        buttonClass = 'request-btn pending';
+                        }
                         break;
                     case 'approved':
-                        buttonText = 'Request Movie';  // Allow re-request
-                        buttonClass = 'request-btn';
-                        buttonDisabled = false;
+                        buttonText = 'Approved ✅';
+                        buttonClass = 'request-btn approved';
                         break;
                     case 'not_available':
                         if (userRequest.retryAfter) {
@@ -2753,32 +2739,16 @@
                         buttonClass = 'request-btn no_storage';
                         break;
                     case 'already_exists':
-                        buttonText = 'Request Movie';  // Allow re-request
-                        buttonClass = 'request-btn';
-                        buttonDisabled = false;
+                        buttonText = 'Already Available 📦';
+                        buttonClass = 'request-btn already_exists';
                         break;
                     case 'added_to_client':
-                        // If Plex shows available, override added_to_client status
-                        if (globalAvailability && globalAvailability.plexAvailable) {
-                            buttonText = 'Already Available 📦 (Click to Request)';  // Show as available
-                            buttonClass = 'request-btn already-available-clickable';
-                            buttonDisabled = false;
-                        } else {
-                            buttonText = 'Added to Queue 📥';
-                            buttonClass = 'request-btn added_to_queue';
-                        }
+                        buttonText = 'Added to Queue 📥';
+                        buttonClass = 'request-btn added_to_queue';
                         break;
                     case 'downloading':
-                        // If Plex shows available, override downloading status
-                        if (globalAvailability && globalAvailability.plexAvailable) {
-                            buttonText = 'Already Available 📦 (Click to Request)';  // Show as available
-                            buttonClass = 'request-btn already-available-clickable';
-                            buttonDisabled = false;
-                        } else {
-                            buttonText = 'Downloading ⬇️';  // Only show downloading if not in Plex
-                            buttonClass = 'request-btn downloading';
-                            buttonDisabled = true;
-                        }
+                        buttonText = 'Downloading ⬇️';
+                        buttonClass = 'request-btn downloading';
                         break;
                     case 'added':  // Legacy status, map to new one
                         buttonText = 'Added to Queue 📥';
@@ -2804,19 +2774,19 @@
             if (globalAvailability) {
                 if (globalAvailability.globalStatus === 'available') {
                     if (mediaType === 'movie') {
-                        // FIX: Keep button enabled and normal looking when available
-                        buttonDisabled = false;
-                        buttonText = 'Request Movie';
-                        buttonClass = 'request-btn'; // Normal button class, not blurred
+                        // ENHANCED: Allow re-requesting even when movie is available
+                        buttonDisabled = false; // Allow requests anyway
+                        buttonText = 'Request Movie (Available in Plex) 🔄';
+                        buttonClass = 'request-btn available-but-requestable';
                         const source = globalAvailability.plexAvailable ? 'in your Plex library' : 'from previous request';
-                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5; color: #28a745; font-weight: 600;">📦 Already available ${source}</div>`;
+                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5; color: #28a745; font-weight: 600;">📦 Already available ${source} - But you can request again if needed!</div>`;
                     } else {
-                        // FIX: Keep button enabled and normal looking when available
-                        buttonDisabled = false;
-                        buttonText = 'Request Episodes';
-                        buttonClass = 'request-btn'; // Normal button class, not blurred
+                        // ENHANCED: Allow re-requesting even when all episodes are available
+                        buttonDisabled = false; // Allow requests anyway
+                        buttonText = 'Request Episodes (Available in Plex) 🔄';
+                        buttonClass = 'request-btn available-but-requestable';
                         const source = globalAvailability.plexAvailable ? 'in your Plex library' : 'from previous requests';
-                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5; color: #28a745; font-weight: 600;">📦 All episodes available ${source}</div>`;
+                        episodeStatusHTML = `<div class="episode-status" style="margin-bottom: 10px; padding: 8px; background: rgba(40, 167, 69, 0.1); border-radius: 6px; border: 1px solid rgba(40, 167, 69, 0.3); font-size: 0.8rem; line-height: 1.5; color: #28a745; font-weight: 600;">📦 All episodes available ${source} - But you can request again if needed!</div>`;
                     }
                 } else if (globalAvailability.globalStatus === 'partially_available' && mediaType === 'tv') {
                     buttonDisabled = false;
@@ -3224,29 +3194,13 @@
                     button.textContent = 'No Storage 💾';
                     break;
                 case 'already_exists':
-                    button.textContent = 'Already Available 📦 (Click to Request Anyway)';
-                    button.disabled = false; // Allow re-requesting even if available
-                    button.className = 'request-btn already-available-clickable';
+                    button.textContent = 'Already Available 📦';
                     break;
                 case 'added_to_client':
-                    // Check if actually in Plex
-                    if (window.globalAvailability && window.globalAvailability.plexAvailable) {
-                        button.textContent = 'Request Movie';
-                        button.disabled = false;
-                        button.className = 'request-btn';
-                    } else {
-                        button.textContent = 'Added to Queue 📥';
-                    }
+                    button.textContent = 'Added to Queue 📥';
                     break;
                 case 'downloading':
-                    // Check if actually in Plex
-                    if (window.globalAvailability && window.globalAvailability.plexAvailable) {
-                        button.textContent = 'Request Movie';
-                        button.disabled = false;
-                        button.className = 'request-btn';
-                    } else {
-                        button.textContent = 'Downloading ⬇️';
-                    }
+                    button.textContent = 'Downloading ⬇️';
                     break;
                 case 'error':
                     button.textContent = 'Retry Request ⚠️';
@@ -3272,9 +3226,7 @@
                     button.textContent = 'Added ✅';
                     break;
                 case 'available':
-                    button.textContent = 'Already Available 📦 (Click to Request)';
-                    button.disabled = false; // Allow re-requesting even if available
-                    button.className = 'request-btn already-available-clickable';
+                    button.textContent = 'Already Available 📦';
                     break;
                 default:
                     button.textContent = `${status} 📊`;
@@ -4154,10 +4106,10 @@
                     
                     mediaCard.appendChild(badge);
                     
-                    // Update button to show already available but keep it clickable
-                    button.textContent = 'Already Available 📦 (Click to Request)';
-                    button.disabled = false; // Keep button clickable even if available
-                    button.className = 'request-btn already-available-clickable';
+                    // Update button to show already available
+                    button.textContent = 'Already Available 📦';
+                    button.disabled = true;
+                    button.className = 'request-btn already_exists';
                 }
             });
         }
@@ -4503,6 +4455,78 @@
             
             console.log('🔄 Global status polling started (30s intervals)');
         }
-    </script>
+
+        // ========== PLEX INVENTORY ADDON - AUTO-SHOW BADGES ==========
+        (function() {
+            const db = firebase.firestore();
+            const inventoryRef = db.collection('artifacts/1403586588985921587/public/data/plexInventory');
+
+            // Check if item is on Plex
+            window.checkPlexInventory = async function(tmdbId, type) {
+                try {
+                    const docId = `tmdb_${type}_${tmdbId}`;
+                    const doc = await inventoryRef.doc(docId).get();
+                    if (doc.exists) {
+                        const data = doc.data();
+                        return { exists: true, ...data };
+                    }
+                    return { exists: false };
+                } catch (error) {
+                    console.warn('Plex check failed:', error);
+                    return { exists: false };
+                }
+            };
+
+            // Add CSS for badges
+            const style = document.createElement('style');
+            style.textContent = `
+                .plex-inventory-badge {
+                    background: linear-gradient(135deg, #e5a00d 0%, #f9d423 100%);
+                    color: #000;
+                    padding: 6px 12px;
+                    border-radius: 6px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    display: inline-flex;
+                    align-items: center;
+                    gap: 4px;
+                    margin: 8px 0;
+                    box-shadow: 0 2px 8px rgba(229, 160, 13, 0.3);
+                }
+                .plex-seasons-info { font-size: 11px; color: #888; margin-top: 4px; }
+            `;
+            document.head.appendChild(style);
+
+            // Auto-enhance media cards
+            async function enhanceCards() {
+                const cards = document.querySelectorAll('.media-card');
+                for (const card of cards) {
+                    if (card.querySelector('.plex-inventory-badge')) continue;
+                    const btn = card.querySelector('.request-btn');
+                    if (!btn) continue;
+                    const match = btn.getAttribute('onclick')?.match(/requestMedia\((\d+),\s*['"](\w+)['"]/);
+                    if (!match) continue;
+                    const [, tmdbId, type] = match;
+                    const plex = await window.checkPlexInventory(parseInt(tmdbId), type);
+                    if (plex.exists) {
+                        const badge = document.createElement('div');
+                        badge.className = 'plex-inventory-badge';
+                        badge.innerHTML = `<span>✨</span> On Plex: ${plex.library}`;
+                        if (type === 'tv' && plex.seasons) {
+                            const info = document.createElement('div');
+                            info.className = 'plex-seasons-info';
+                            info.textContent = `${Object.keys(plex.seasons).join(', ')} (${plex.totalEpisodes} eps)`;
+                            badge.appendChild(info);
+                        }
+                        btn.parentNode.insertBefore(badge, btn);
+                    }
+                }
+            }
+            setTimeout(enhanceCards, 1000);
+            new MutationObserver(() => setTimeout(enhanceCards, 500)).observe(document.body, { childList: true, subtree: true });
+            console.log('✅ Plex Inventory Addon active');
+        })();
+        // ========== END PLEX INVENTORY ADDON ==========
+
 </body>
 </html>
