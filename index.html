@@ -2015,57 +2015,18 @@
             }
         }
         
-        // ENHANCED: Check Plex connection status
+        // ENHANCED: Check Plex connection status (DISABLED for live site)
         async function checkPlexConnection() {
-            try {
-                console.log('🔍 Checking Plex connection status...');
-                const response = await fetch('/api/test-plex');
-                const data = await response.json();
-                
-                // Update Plex status indicator
-                updatePlexStatusIndicator(data.connected, data.plexUrl, data.error);
-                
-            } catch (error) {
-                console.error('❌ Plex connection check failed:', error);
-                updatePlexStatusIndicator(false, null, error.message);
-            }
+            // DISABLED: Don't show Plex connection status on live site
+            // The inventory is synced to Firebase, so direct Plex connection isn't needed
+            console.log('ℹ️ Plex connection check disabled - using Firebase inventory instead');
+            return;
         }
-        
-        // Update Plex status indicator in the UI
+
+        // Update Plex status indicator in the UI (DISABLED)
         function updatePlexStatusIndicator(connected, plexUrl, error) {
-            // Create status indicator if it doesn't exist
-            let indicator = document.getElementById('plexStatus');
-            if (!indicator) {
-                indicator = document.createElement('div');
-                indicator.id = 'plexStatus';
-                indicator.style.cssText = `
-                    position: fixed;
-                    top: 10px;
-                    right: 10px;
-                    padding: 8px 12px;
-                    border-radius: 6px;
-                    font-size: 0.8rem;
-                    font-weight: 600;
-                    z-index: 1000;
-                    box-shadow: 0 2px 8px rgba(0,0,0,0.2);
-                    transition: all 0.3s ease;
-                `;
-                document.body.appendChild(indicator);
-            }
-            
-            if (connected) {
-                indicator.innerHTML = '🟢 Plex Connected';
-                indicator.style.background = 'rgba(40, 167, 69, 0.9)';
-                indicator.style.color = 'white';
-                indicator.title = `Connected to Plex at ${plexUrl}`;
-                console.log('✅ Plex status: Connected');
-            } else {
-                indicator.innerHTML = '🔴 Plex Disconnected';
-                indicator.style.background = 'rgba(220, 53, 69, 0.9)';
-                indicator.style.color = 'white';
-                indicator.title = `Plex connection failed: ${error || 'Unknown error'}`;
-                console.warn('❌ Plex status: Disconnected');
-            }
+            // DISABLED: Don't show Plex status indicator on live site
+            return;
         }
         
         // Test direct Plex search functionality
@@ -4468,31 +4429,49 @@
                 loadGlobalPlexAvailability();
             }, 120000); // Every 2 minutes
             
+            console.log('🔄 Global status polling started (30s intervals)');
+        }
 
-        // ========== PLEX INVENTORY ADDON - AUTO-SHOW BADGES ==========
+        // ========== PLEX INVENTORY ADDON - SMART MATCHING ==========
         (function() {
             function initPlexAddon() {
                 if (!window.db) {
-                    console.log('⏳ Waiting for Firestore to initialize...');
                     setTimeout(initPlexAddon, 500);
                     return;
                 }
 
                 console.log('🎬 Plex Inventory Addon loading...');
 
-                const inventoryRef = window.collection(window.db, 'artifacts/1403586588985921587/public/data/plexInventory');
-
-                // Check if item is on Plex
-                window.checkPlexInventory = async function(tmdbId, type) {
+                // Check if item is on Plex - tries TMDB ID first, then normalized title
+                window.checkPlexInventory = async function(tmdbId, type, title, year) {
                     try {
-                        const docId = `tmdb_${type}_${tmdbId}`;
-                        const docRef = window.doc(window.db, 'artifacts/1403586588985921587/public/data/plexInventory', docId);
-                        const docSnap = await window.getDoc(docRef);
+                        // Try TMDB ID first (most reliable)
+                        if (tmdbId) {
+                            const tmdbDocId = `tmdb_${type}_${tmdbId}`;
+                            const tmdbDocRef = window.doc(window.db, 'artifacts/1403586588985921587/public/data/plexInventory', tmdbDocId);
+                            const tmdbDoc = await window.getDoc(tmdbDocRef);
 
-                        if (docSnap.exists()) {
-                            const data = docSnap.data();
-                            return { exists: true, ...data };
+                            if (tmdbDoc.exists()) {
+                                const data = tmdbDoc.data();
+                                console.log(`✅ Found via TMDB ID: ${title}`);
+                                return { exists: true, ...data };
+                            }
                         }
+
+                        // Fallback: Try normalized title + year
+                        if (title && year) {
+                            const normalizedTitle = title.toLowerCase().replace(/[^a-z0-9]/g, '_');
+                            const titleDocId = `${type}_${normalizedTitle}_${year}`;
+                            const titleDocRef = window.doc(window.db, 'artifacts/1403586588985921587/public/data/plexInventory', titleDocId);
+                            const titleDoc = await window.getDoc(titleDocRef);
+
+                            if (titleDoc.exists()) {
+                                const data = titleDoc.data();
+                                console.log(`✅ Found via title match: ${title}`);
+                                return { exists: true, ...data };
+                            }
+                        }
+
                         return { exists: false };
                     } catch (error) {
                         console.warn('Plex check failed:', error);
@@ -4500,7 +4479,7 @@
                     }
                 };
 
-                // Add CSS for badges
+                // Add CSS
                 const style = document.createElement('style');
                 style.textContent = `
                     .plex-inventory-badge {
@@ -4515,32 +4494,41 @@
                         gap: 4px;
                         margin: 8px 0;
                         box-shadow: 0 2px 8px rgba(229, 160, 13, 0.3);
-                        animation: subtle-glow 2s ease-in-out infinite;
                     }
-                    @keyframes subtle-glow {
-                        0%, 100% { box-shadow: 0 2px 8px rgba(229, 160, 13, 0.3); }
-                        50% { box-shadow: 0 2px 12px rgba(229, 160, 13, 0.5); }
-                    }
-                    .plex-seasons-info { font-size: 11px; color: #888; margin-top: 4px; font-style: italic; }
-                    .light-mode .plex-seasons-info { color: #666; }
+                    .plex-seasons-info { font-size: 11px; color: #888; margin-top: 4px; }
                 `;
                 document.head.appendChild(style);
 
-                // Auto-enhance media cards
+                // Enhance media cards
                 async function enhanceCards() {
                     const cards = document.querySelectorAll('.media-card');
                     for (const card of cards) {
                         if (card.querySelector('.plex-inventory-badge')) continue;
+
+                        // Extract title and year from card
+                        const titleEl = card.querySelector('h3, .media-title');
+                        const title = titleEl ? titleEl.textContent.trim() : null;
+
+                        // Extract year from card text
+                        const cardText = card.textContent;
+                        const yearMatch = cardText.match(/\((\d{4})\)|\b(19|20)\d{2}\b/);
+                        const year = yearMatch ? (yearMatch[1] || yearMatch[0]) : null;
+
                         const btn = card.querySelector('.request-btn');
                         if (!btn) continue;
+
                         const match = btn.getAttribute('onclick')?.match(/requestMedia\((\d+),\s*['"](\w+)['"]/);
                         if (!match) continue;
+
                         const [, tmdbId, type] = match;
-                        const plex = await window.checkPlexInventory(parseInt(tmdbId), type);
+
+                        // Check with both TMDB ID and title+year
+                        const plex = await window.checkPlexInventory(parseInt(tmdbId), type, title, year);
+
                         if (plex.exists) {
                             const badge = document.createElement('div');
                             badge.className = 'plex-inventory-badge';
-                            badge.innerHTML = `<span>✨</span> On Plex: ${plex.library}`;
+                            badge.innerHTML = `<span>✨</span> On Plex`;
                             if (type === 'tv' && plex.seasons) {
                                 const info = document.createElement('div');
                                 info.className = 'plex-seasons-info';
@@ -4552,16 +4540,14 @@
                     }
                 }
 
-                setTimeout(enhanceCards, 1000);
-                new MutationObserver(() => setTimeout(enhanceCards, 500)).observe(document.body, { childList: true, subtree: true });
+                setTimeout(enhanceCards, 2000);
+                new MutationObserver(() => setTimeout(enhanceCards, 1000)).observe(document.body, { childList: true, subtree: true });
                 console.log('✅ Plex Inventory Addon active');
             }
 
             initPlexAddon();
         })();
         // ========== END PLEX INVENTORY ADDON ==========
-            console.log('🔄 Global status polling started (30s intervals)');
-        }
     </script>
 </body>
 </html>
