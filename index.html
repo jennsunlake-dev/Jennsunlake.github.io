@@ -13,6 +13,7 @@
     <script type="module">
         import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
         import { getAuth, signInWithCredential, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
+        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy, limit as firestoreLimit } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
 
         // API client for backend communication
         class ApiClient {
@@ -198,9 +199,23 @@
                 try {
             firebaseApp = initializeApp(config.firebase);
             auth = getAuth(firebaseApp);
+            const db = getFirestore(firebaseApp);
+
+            // Expose to global scope for non-module scripts
             window.firebaseApp = firebaseApp;
             window.auth = auth;
-            console.log('🔥 Firebase initialized securely via backend');
+            window.db = db;
+            window.doc = doc;
+            window.getDoc = getDoc;
+            window.setDoc = setDoc;
+            window.onSnapshot = onSnapshot;
+            window.collection = collection;
+            window.query = query;
+            window.where = where;
+            window.orderBy = orderBy;
+            window.firestoreLimit = firestoreLimit;
+
+            console.log('🔥 Firebase + Firestore initialized securely via backend');
                 } catch (firebaseError) {
                     console.error('❌ Firebase initialization failed:', firebaseError);
                     console.log('⚠️ Continuing without Firebase (will use defaults)');
@@ -4453,80 +4468,100 @@
                 loadGlobalPlexAvailability();
             }, 120000); // Every 2 minutes
             
-            console.log('🔄 Global status polling started (30s intervals)');
-        }
 
         // ========== PLEX INVENTORY ADDON - AUTO-SHOW BADGES ==========
         (function() {
-            const db = firebase.firestore();
-            const inventoryRef = db.collection('artifacts/1403586588985921587/public/data/plexInventory');
-
-            // Check if item is on Plex
-            window.checkPlexInventory = async function(tmdbId, type) {
-                try {
-                    const docId = `tmdb_${type}_${tmdbId}`;
-                    const doc = await inventoryRef.doc(docId).get();
-                    if (doc.exists) {
-                        const data = doc.data();
-                        return { exists: true, ...data };
-                    }
-                    return { exists: false };
-                } catch (error) {
-                    console.warn('Plex check failed:', error);
-                    return { exists: false };
+            function initPlexAddon() {
+                if (!window.db) {
+                    console.log('⏳ Waiting for Firestore to initialize...');
+                    setTimeout(initPlexAddon, 500);
+                    return;
                 }
-            };
 
-            // Add CSS for badges
-            const style = document.createElement('style');
-            style.textContent = `
-                .plex-inventory-badge {
-                    background: linear-gradient(135deg, #e5a00d 0%, #f9d423 100%);
-                    color: #000;
-                    padding: 6px 12px;
-                    border-radius: 6px;
-                    font-size: 12px;
-                    font-weight: 600;
-                    display: inline-flex;
-                    align-items: center;
-                    gap: 4px;
-                    margin: 8px 0;
-                    box-shadow: 0 2px 8px rgba(229, 160, 13, 0.3);
-                }
-                .plex-seasons-info { font-size: 11px; color: #888; margin-top: 4px; }
-            `;
-            document.head.appendChild(style);
+                console.log('🎬 Plex Inventory Addon loading...');
 
-            // Auto-enhance media cards
-            async function enhanceCards() {
-                const cards = document.querySelectorAll('.media-card');
-                for (const card of cards) {
-                    if (card.querySelector('.plex-inventory-badge')) continue;
-                    const btn = card.querySelector('.request-btn');
-                    if (!btn) continue;
-                    const match = btn.getAttribute('onclick')?.match(/requestMedia\((\d+),\s*['"](\w+)['"]/);
-                    if (!match) continue;
-                    const [, tmdbId, type] = match;
-                    const plex = await window.checkPlexInventory(parseInt(tmdbId), type);
-                    if (plex.exists) {
-                        const badge = document.createElement('div');
-                        badge.className = 'plex-inventory-badge';
-                        badge.innerHTML = `<span>✨</span> On Plex: ${plex.library}`;
-                        if (type === 'tv' && plex.seasons) {
-                            const info = document.createElement('div');
-                            info.className = 'plex-seasons-info';
-                            info.textContent = `${Object.keys(plex.seasons).join(', ')} (${plex.totalEpisodes} eps)`;
-                            badge.appendChild(info);
+                const inventoryRef = window.collection(window.db, 'artifacts/1403586588985921587/public/data/plexInventory');
+
+                // Check if item is on Plex
+                window.checkPlexInventory = async function(tmdbId, type) {
+                    try {
+                        const docId = `tmdb_${type}_${tmdbId}`;
+                        const docRef = window.doc(window.db, 'artifacts/1403586588985921587/public/data/plexInventory', docId);
+                        const docSnap = await window.getDoc(docRef);
+
+                        if (docSnap.exists()) {
+                            const data = docSnap.data();
+                            return { exists: true, ...data };
                         }
-                        btn.parentNode.insertBefore(badge, btn);
+                        return { exists: false };
+                    } catch (error) {
+                        console.warn('Plex check failed:', error);
+                        return { exists: false };
+                    }
+                };
+
+                // Add CSS for badges
+                const style = document.createElement('style');
+                style.textContent = `
+                    .plex-inventory-badge {
+                        background: linear-gradient(135deg, #e5a00d 0%, #f9d423 100%);
+                        color: #000;
+                        padding: 6px 12px;
+                        border-radius: 6px;
+                        font-size: 12px;
+                        font-weight: 600;
+                        display: inline-flex;
+                        align-items: center;
+                        gap: 4px;
+                        margin: 8px 0;
+                        box-shadow: 0 2px 8px rgba(229, 160, 13, 0.3);
+                        animation: subtle-glow 2s ease-in-out infinite;
+                    }
+                    @keyframes subtle-glow {
+                        0%, 100% { box-shadow: 0 2px 8px rgba(229, 160, 13, 0.3); }
+                        50% { box-shadow: 0 2px 12px rgba(229, 160, 13, 0.5); }
+                    }
+                    .plex-seasons-info { font-size: 11px; color: #888; margin-top: 4px; font-style: italic; }
+                    .light-mode .plex-seasons-info { color: #666; }
+                `;
+                document.head.appendChild(style);
+
+                // Auto-enhance media cards
+                async function enhanceCards() {
+                    const cards = document.querySelectorAll('.media-card');
+                    for (const card of cards) {
+                        if (card.querySelector('.plex-inventory-badge')) continue;
+                        const btn = card.querySelector('.request-btn');
+                        if (!btn) continue;
+                        const match = btn.getAttribute('onclick')?.match(/requestMedia\((\d+),\s*['"](\w+)['"]/);
+                        if (!match) continue;
+                        const [, tmdbId, type] = match;
+                        const plex = await window.checkPlexInventory(parseInt(tmdbId), type);
+                        if (plex.exists) {
+                            const badge = document.createElement('div');
+                            badge.className = 'plex-inventory-badge';
+                            badge.innerHTML = `<span>✨</span> On Plex: ${plex.library}`;
+                            if (type === 'tv' && plex.seasons) {
+                                const info = document.createElement('div');
+                                info.className = 'plex-seasons-info';
+                                info.textContent = `${Object.keys(plex.seasons).join(', ')} (${plex.totalEpisodes} eps)`;
+                                badge.appendChild(info);
+                            }
+                            btn.parentNode.insertBefore(badge, btn);
+                        }
                     }
                 }
+
+                setTimeout(enhanceCards, 1000);
+                new MutationObserver(() => setTimeout(enhanceCards, 500)).observe(document.body, { childList: true, subtree: true });
+                console.log('✅ Plex Inventory Addon active');
             }
-            setTimeout(enhanceCards, 1000);
-            new MutationObserver(() => setTimeout(enhanceCards, 500)).observe(document.body, { childList: true, subtree: true });
-            console.log('✅ Plex Inventory Addon active');
+
+            initPlexAddon();
         })();
         // ========== END PLEX INVENTORY ADDON ==========
-
+            console.log('🔄 Global status polling started (30s intervals)');
+        }
+    </script>
 </body>
 </html>
