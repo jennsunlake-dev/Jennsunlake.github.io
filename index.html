@@ -2042,11 +2042,13 @@
         // ===== POPULAR CONTENT =====
         async function loadPopularContent() {
             await Promise.all([loadPopularMovies(), loadPopularTVShows()]);
-            setTimeout(() => {
-                loadGlobalStatuses();
-                loadGlobalPlexAvailability();
+            // Load global data then apply badges to cards
+            setTimeout(async () => {
+                await loadGlobalStatuses();
+                await loadGlobalPlexAvailability();
+                refreshAllCardStatuses();
                 startGlobalStatusPolling();
-            }, 2000);
+            }, 1000);
         }
 
         async function loadPopularMovies() {
