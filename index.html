@@ -2235,8 +2235,6 @@
                     btnDisabled = mediaType !== 'tv';
                     btnText = mediaType === 'tv' ? 'Request Episodes' : 'Available on Plex';
                     btnClass = mediaType === 'tv' ? 'default' : 'available';
-                    const src = globalAvailability.plexAvailable ? 'Plex library' : 'previous request';
-                    statusHTML = `<div class="status-info success">Available in ${src}</div>`;
                 } else if (globalAvailability.globalStatus === 'partially_available' && mediaType === 'tv') {
                     btnDisabled = false;
                     const count = globalAvailability.availableEpisodeCount || 0;
@@ -2258,7 +2256,6 @@
                     btnDisabled = mediaType !== 'tv';
                     btnText = mediaType === 'tv' ? 'Request Episodes' : 'Available on Plex';
                     btnClass = mediaType === 'tv' ? 'default' : 'available';
-                    statusHTML = `<div class="status-info success">Available on Plex</div>`;
                 }
             }
 
