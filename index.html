@@ -2205,7 +2205,7 @@
                         btnClass = 'downloading';
                         btnDisabled = true;
                         statusHTML = `<div class="status-info info">Already being downloaded</div>`;
-                    } else if (['pending', 'approved', 'searching', 'selecting', 'adding', 'processing'].includes(gs)) {
+                    } else if (['pending', 'received', 'approved', 'searching', 'selecting', 'adding', 'processing'].includes(gs)) {
                         btnText = 'Already Requested';
                         btnClass = 'pending';
                         btnDisabled = true;
@@ -2762,6 +2762,7 @@
 
             const statusMap = {
                 'pending': ['Pending...', 'pending'],
+                'received': ['Processing...', 'pending'],
                 'approved': ['Approved', 'approved'],
                 'not_available': ['Try Again', 'retry'],
                 'no_storage': ['No Storage', 'no_storage'],
@@ -2983,7 +2984,7 @@
 
         // Clear stuck statuses every 30 minutes
         // Statuses that are actively progressing and should NOT be cleared:
-        const ACTIVE_STATUSES = ['downloading', 'added_to_client', 'added_to_queue', 'added', 'available', 'completed', 'not_available'];
+        const ACTIVE_STATUSES = ['received', 'downloading', 'added_to_client', 'added_to_queue', 'added', 'available', 'completed', 'not_available'];
         function clearStuckStatuses() {
             const now = Date.now();
             const THIRTY_MIN = 30 * 60 * 1000;
