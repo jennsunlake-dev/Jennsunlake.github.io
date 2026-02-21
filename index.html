@@ -1722,7 +1722,7 @@
             const userRequest = userRequests.get(mediaId);
             let globalAvailability = null;
             try { if (window.apiClient) globalAvailability = await window.apiClient.getGlobalAvailability(item.id, mediaType); } catch (e) {}
-            const { btnText, btnClass, btnDisabled, statusHTML } = getStatusInfo(mediaType, userRequest, globalAvailability);
+            const { btnText, btnClass, btnDisabled, statusHTML } = getStatusInfo(mediaType, userRequest, globalAvailability, mediaId);
 
             actionsEl.innerHTML = `
                 ${statusHTML ? `<div style="margin-bottom:12px;">${statusHTML}</div>` : ''}
@@ -2132,7 +2132,7 @@
             }
         }
 
-        function getStatusInfo(mediaType, userRequest, globalAvailability) {
+        function getStatusInfo(mediaType, userRequest, globalAvailability, mediaId) {
             let btnText = mediaType === 'tv' ? 'Request Episodes' : 'Request Movie';
             let btnClass = 'default';
             let btnDisabled = false;
@@ -2195,12 +2195,42 @@
                 }
             }
 
-            // Global availability overrides
+            // Check if another user already requested this (global status)
+            if (!userRequest && mediaId) {
+                const globalStatus = globalRequestStatuses.get(mediaId);
+                if (globalStatus) {
+                    const gs = globalStatus.status;
+                    if (gs === 'downloading') {
+                        btnText = 'Downloading';
+                        btnClass = 'downloading';
+                        btnDisabled = true;
+                        statusHTML = `<div class="status-info info">Already being downloaded</div>`;
+                    } else if (['pending', 'approved', 'searching', 'selecting', 'adding', 'processing'].includes(gs)) {
+                        btnText = 'Already Requested';
+                        btnClass = 'pending';
+                        btnDisabled = true;
+                        statusHTML = `<div class="status-info info">Already requested by another user</div>`;
+                    } else if (['added_to_client', 'added_to_queue', 'added'].includes(gs)) {
+                        btnText = 'In Download Queue';
+                        btnClass = 'added_to_queue';
+                        btnDisabled = true;
+                        statusHTML = `<div class="status-info info">Queued for download</div>`;
+                    }
+                    // For TV shows, still allow requesting different episodes
+                    if (mediaType === 'tv' && btnDisabled) {
+                        btnDisabled = false;
+                        btnText = 'Request Episodes';
+                        btnClass = 'default';
+                    }
+                }
+            }
+
+            // Global availability overrides (Plex/completed)
             if (globalAvailability) {
                 if (globalAvailability.globalStatus === 'available') {
-                    btnDisabled = false;
-                    btnText = mediaType === 'tv' ? 'Request Episodes' : 'Request Movie';
-                    btnClass = 'default';
+                    btnDisabled = mediaType !== 'tv';
+                    btnText = mediaType === 'tv' ? 'Request Episodes' : 'Available on Plex';
+                    btnClass = mediaType === 'tv' ? 'default' : 'available';
                     const src = globalAvailability.plexAvailable ? 'Plex library' : 'previous request';
                     statusHTML = `<div class="status-info success">Available in ${src}</div>`;
                 } else if (globalAvailability.globalStatus === 'partially_available' && mediaType === 'tv') {
@@ -2217,8 +2247,19 @@
                 }
             }
 
+            // Plex inventory check (from global plex availability map)
+            if (!userRequest && mediaId && !statusHTML) {
+                const plexAvail = globalPlexAvailability.get(mediaId);
+                if (plexAvail && plexAvail.available) {
+                    btnDisabled = mediaType !== 'tv';
+                    btnText = mediaType === 'tv' ? 'Request Episodes' : 'Available on Plex';
+                    btnClass = mediaType === 'tv' ? 'default' : 'available';
+                    statusHTML = `<div class="status-info success">Available on Plex</div>`;
+                }
+            }
+
             // Weekly limit
-            if (!userRequest && userTier !== 'VIP' && userRequestCount >= weeklyLimit) {
+            if (!userRequest && !btnDisabled && userTier !== 'VIP' && userRequestCount >= weeklyLimit) {
                 btnDisabled = true;
                 btnText = 'Weekly Limit Reached';
                 btnClass = 'pending';
@@ -2241,7 +2282,7 @@
             let globalAvailability = null;
             try { if (window.apiClient) globalAvailability = await window.apiClient.getGlobalAvailability(item.id, mediaType); } catch (e) {}
 
-            const { btnText, btnClass, btnDisabled, statusHTML } = getStatusInfo(mediaType, userRequest, globalAvailability);
+            const { btnText, btnClass, btnDisabled, statusHTML } = getStatusInfo(mediaType, userRequest, globalAvailability, mediaId);
 
             // Store availability data
             if (globalAvailability?.availableEpisodes) {
@@ -2324,6 +2365,22 @@
         async function submitRequest() {
             if (!currentUser || !selectedMedia) return;
             const mediaType = selectedMedia.media_type || currentMediaType;
+            const mediaId = `${mediaType}-${selectedMedia.id}`;
+
+            // Client-side duplicate check for movies
+            if (mediaType === 'movie') {
+                const globalStatus = globalRequestStatuses.get(mediaId);
+                if (globalStatus) {
+                    showToast(`${selectedMedia.title || selectedMedia.name} is already being processed (${globalStatus.status})`, 'error');
+                    return;
+                }
+                const plexAvail = globalPlexAvailability.get(mediaId);
+                if (plexAvail && plexAvail.available) {
+                    showToast(`${selectedMedia.title || selectedMedia.name} is already available on Plex`, 'error');
+                    return;
+                }
+            }
+
             const episodeData = {};
             for (const [season, episodes] of Object.entries(selectedEpisodes)) {
                 episodeData[`S${String(season).padStart(2, '0')}`] = episodes.sort((a, b) => a - b);
@@ -2354,9 +2411,26 @@
             };
 
             try {
-                await window.apiClient.createRequest(requestData);
+                const response = await fetch(`${window.apiClient.baseUrl}/api/requests`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestData)
+                });
+                const result = await response.json();
+
+                if (!response.ok) {
+                    if (response.status === 409) {
+                        showToast(result.message || 'This title has already been requested', 'error');
+                        loadGlobalStatuses();
+                    } else {
+                        throw new Error(result.error || 'Failed to create request');
+                    }
+                    return;
+                }
+
                 if (userTier !== 'VIP') { userRequestCount++; updateNavUser(); }
                 showToast(`Request submitted for ${requestData.title}!`);
+                loadGlobalStatuses();
                 selectedMedia = null;
                 selectedEpisodes = {};
                 tvShowDetails = null;
@@ -2760,6 +2834,7 @@
                 const response = await window.apiClient.getGlobalStatuses();
                 globalRequestStatuses.clear();
                 Object.entries(response.statuses).forEach(([id, status]) => globalRequestStatuses.set(id, status));
+                refreshAllCardStatuses();
             } catch (e) {}
         }
 
@@ -2768,7 +2843,37 @@
                 const response = await window.apiClient.getGlobalPlexAvailability();
                 globalPlexAvailability.clear();
                 Object.entries(response.availability).forEach(([id, avail]) => globalPlexAvailability.set(id, avail));
+                refreshAllCardStatuses();
             } catch (e) {}
+        }
+
+        // Refresh all visible card buttons with current global + user status
+        function refreshAllCardStatuses() {
+            document.querySelectorAll('.media-card[data-media-id]').forEach(card => {
+                const mediaId = card.dataset.mediaId;
+                if (!mediaId) return;
+                const btn = document.getElementById('btn-' + mediaId);
+                if (!btn) return;
+                const mediaType = mediaId.split('-')[0];
+                const userRequest = userRequests.get(mediaId);
+                const { btnText, btnClass, btnDisabled, statusHTML } = getStatusInfo(mediaType, userRequest, null, mediaId);
+
+                btn.textContent = btnText;
+                btn.className = `req-btn ${btnClass}`;
+                btn.disabled = btnDisabled;
+
+                // Update status info div
+                let statusDiv = card.querySelector('.status-info');
+                if (statusHTML) {
+                    if (!statusDiv) {
+                        statusDiv = document.createElement('div');
+                        btn.parentNode.insertBefore(statusDiv, btn);
+                    }
+                    statusDiv.outerHTML = statusHTML;
+                } else if (statusDiv) {
+                    statusDiv.remove();
+                }
+            });
         }
 
         function startGlobalStatusPolling() {
