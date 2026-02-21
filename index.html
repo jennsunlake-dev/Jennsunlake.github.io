@@ -2163,7 +2163,7 @@
                 switch (userRequest.status) {
                     case 'pending':
                         const pendingAge = Date.now() - new Date(userRequest.timestamp?.seconds * 1000 || userRequest.lastUpdated || Date.now());
-                        if (pendingAge > 10000) { btnText = 'Retry Request'; btnClass = 'retry'; btnDisabled = false; }
+                        if (pendingAge > 120000) { btnText = 'Retry Request'; btnClass = 'retry'; btnDisabled = false; }
                         else { btnText = 'Pending...'; btnClass = 'pending'; }
                         break;
                     case 'approved': btnText = 'Approved'; btnClass = 'approved'; break;
@@ -2188,7 +2188,7 @@
                         break;
                     case 'error':
                         const errAge = Date.now() - new Date(userRequest.timestamp?.seconds * 1000 || userRequest.lastUpdated || Date.now());
-                        if (errAge > 10000) { btnText = 'Retry Request'; btnClass = 'retry'; btnDisabled = false; }
+                        if (errAge > 60000) { btnText = 'Retry Request'; btnClass = 'retry'; btnDisabled = false; }
                         else { btnText = 'Processing...'; btnClass = 'pending'; }
                         break;
                     case 'searching': btnText = 'Searching...'; btnClass = 'searching'; break;
