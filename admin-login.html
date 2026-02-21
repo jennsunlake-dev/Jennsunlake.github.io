@@ -358,7 +358,7 @@
                         // Redirect after a short delay
                         setTimeout(() => {
                             console.log('Redirecting to admin dashboard...');
-                            window.location.href = `/admin?token=${data.token}`;
+                            window.location.href = '/admin';
                         }, 1500);
                     } else {
                         console.error('Login failed:', data);
