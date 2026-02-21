@@ -2,7 +2,11 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Notflix Admin">
+    <meta name="theme-color" content="#1e3c72">
     <title>Notflix Admin Dashboard</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -13,11 +17,16 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
             background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
             color: #ffffff;
             min-height: 100vh;
             overflow-x: hidden;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            /* iPhone safe area support */
+            padding-left: env(safe-area-inset-left);
+            padding-right: env(safe-area-inset-right);
         }
 
         .header {
@@ -39,6 +48,106 @@
         .header p {
             color: #a0a0a0;
             font-size: 1.1rem;
+        }
+
+        /* iPhone and mobile optimizations */
+        @media (max-width: 768px) {
+            .header {
+                padding: max(15px, env(safe-area-inset-top)) 20px 15px 20px;
+                text-align: center;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+                margin-bottom: 8px;
+            }
+            
+            .header p {
+                font-size: 0.95rem;
+                line-height: 1.4;
+            }
+            
+            .container {
+                padding: 15px;
+                padding-bottom: max(20px, env(safe-area-inset-bottom));
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 8px;
+                margin-bottom: 20px;
+            }
+            
+            .stat-card {
+                padding: 16px 12px;
+                text-align: center;
+                min-height: 80px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+            }
+            
+            .stat-card .icon {
+                font-size: 1.5rem;
+                margin-bottom: 6px;
+            }
+            
+            .stat-card .value {
+                font-size: 1.3rem;
+                margin-bottom: 4px;
+            }
+            
+            .stat-card .label {
+                font-size: 0.75rem;
+                line-height: 1.2;
+            }
+            
+            .controls {
+                flex-direction: column;
+                gap: 8px;
+                margin-bottom: 20px;
+            }
+            
+            .control-btn {
+                padding: 14px 20px;
+                font-size: 0.9rem;
+                width: 100%;
+                border-radius: 12px;
+                /* Touch-friendly button sizing */
+                min-height: 44px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                text-align: center;
+            }
+        }
+        
+        /* Extra small screens (iPhone SE, etc.) */
+        @media (max-width: 480px) {
+            .header h1 {
+                font-size: 1.6rem;
+            }
+            
+            .container {
+                padding: 12px;
+            }
+            
+            .stats-grid {
+                gap: 6px;
+            }
+            
+            .stat-card {
+                padding: 12px 8px;
+                min-height: 70px;
+            }
+            
+            .stat-card .value {
+                font-size: 1.2rem;
+            }
+            
+            .stat-card .label {
+                font-size: 0.7rem;
+            }
         }
 
         .container {
@@ -95,11 +204,11 @@
         .charts-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 15px;
+            gap: 20px;
             margin-bottom: 20px;
         }
 
-        @media (max-width: 1400px) {
+        @media (max-width: 1200px) {
             .charts-grid {
                 grid-template-columns: repeat(2, 1fr) !important;
                 gap: 15px !important;
@@ -109,24 +218,61 @@
         @media (max-width: 768px) {
             .charts-grid {
                 grid-template-columns: 1fr !important;
-                gap: 15px !important;
+                gap: 12px !important;
+                margin-bottom: 15px !important;
+            }
+            
+            .chart-container {
+                height: 280px !important;
+                min-height: 250px !important;
+                padding: 15px !important;
+            }
+            
+            .chart-title {
+                font-size: 1rem !important;
+                margin-bottom: 12px !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .charts-grid {
+                gap: 10px !important;
+            }
+            
+            .chart-container {
+                height: 240px !important;
+                min-height: 220px !important;
+                padding: 12px !important;
+            }
+            
+            .chart-title {
+                font-size: 0.9rem !important;
+                margin-bottom: 10px !important;
             }
         }
 
         .chart-container {
             background: rgba(255, 255, 255, 0.1);
-            padding: 15px;
+            padding: 20px;
             border-radius: 12px;
             backdrop-filter: blur(10px);
             border: 1px solid rgba(255, 255, 255, 0.2);
-            height: 280px; /* Fixed height for consistency */
+            height: 350px; /* Increased height for better visibility */
+            min-height: 300px;
+            position: relative;
+        }
+
+        .chart-container canvas {
+            max-width: 100% !important;
+            height: auto !important;
         }
 
         .chart-title {
-            font-size: 1.1rem;
+            font-size: 1.2rem;
             font-weight: 600;
-            margin-bottom: 10px;
+            margin-bottom: 15px;
             color: #ffffff;
+            text-align: center;
         }
 
         .activity-section {
@@ -246,6 +392,107 @@
             transition: background 0.2s ease;
         }
 
+        @media (max-width: 768px) {
+            .table-header {
+                display: none; /* Hide header on mobile */
+            }
+            
+            .table-row {
+                display: block;
+                padding: 16px;
+                border-radius: 12px;
+                margin-bottom: 12px;
+                background: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                /* Touch-friendly spacing */
+                min-height: auto;
+            }
+            
+            .table-row > div {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                padding: 10px 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+                min-height: 44px; /* Touch-friendly height */
+            }
+            
+            .table-row > div:last-child {
+                border-bottom: none;
+                padding-bottom: 0;
+            }
+            
+            .table-row > div:before {
+                content: attr(data-label);
+                font-weight: 600;
+                color: #a0a0a0;
+                text-transform: uppercase;
+                font-size: 0.75rem;
+                letter-spacing: 0.5px;
+                min-width: 80px;
+                text-align: left;
+            }
+            
+            .user-info {
+                display: flex !important;
+                justify-content: flex-start !important;
+                padding: 12px 0 !important;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+            }
+            
+            .user-info:before {
+                display: none;
+            }
+            
+            .tier-badge {
+                padding: 6px 10px !important;
+                font-size: 0.75rem !important;
+                border-radius: 8px !important;
+            }
+            
+            .cost-amount {
+                font-size: 1rem !important;
+                font-weight: 700 !important;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .table-row {
+                padding: 12px;
+                margin-bottom: 10px;
+            }
+            
+            .table-row > div {
+                padding: 8px 0;
+                min-height: 40px;
+            }
+            
+            .table-row > div:before {
+                font-size: 0.7rem;
+                min-width: 70px;
+            }
+            
+            .user-info {
+                padding: 10px 0 !important;
+            }
+            
+            .user-avatar {
+                width: 30px !important;
+                height: 30px !important;
+                font-size: 0.8rem !important;
+            }
+            
+            .user-name {
+                font-size: 0.9rem !important;
+                max-width: 120px !important;
+            }
+            
+            .user-email {
+                font-size: 0.75rem !important;
+                max-width: 120px !important;
+            }
+        }
+
         .table-row:hover {
             background: rgba(255, 255, 255, 0.05);
         }
@@ -279,11 +526,30 @@
         .user-name {
             font-weight: 600;
             margin-bottom: 2px;
+            font-size: 1rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
         }
 
         .user-email {
             color: #a0a0a0;
             font-size: 0.8rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            max-width: 200px;
+        }
+
+        @media (max-width: 768px) {
+            .user-name {
+                max-width: 150px;
+            }
+            
+            .user-email {
+                max-width: 150px;
+            }
         }
 
         .tier-badge {
@@ -331,6 +597,10 @@
             transition: all 0.3s ease;
             font-size: 0.9rem;
             font-weight: 600;
+            /* Touch optimizations */
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+            user-select: none;
         }
 
         .control-btn:hover {
@@ -383,8 +653,8 @@
 
         .live-indicator {
             position: fixed;
-            bottom: 20px;
-            right: 20px;
+            bottom: max(20px, env(safe-area-inset-bottom));
+            right: max(20px, env(safe-area-inset-right));
             background: rgba(40, 167, 69, 0.9);
             color: white;
             padding: 8px 12px;
@@ -395,6 +665,48 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .refresh-indicator {
+            bottom: max(20px, env(safe-area-inset-bottom));
+            right: max(20px, env(safe-area-inset-right));
+        }
+        
+        /* Mobile performance optimizations */
+        @media (max-width: 768px) {
+            .live-indicator {
+                bottom: max(15px, env(safe-area-inset-bottom));
+                right: max(15px, env(safe-area-inset-right));
+                font-size: 0.75rem;
+                padding: 6px 10px;
+            }
+            
+            .refresh-indicator {
+                bottom: max(15px, env(safe-area-inset-bottom));
+                right: max(15px, env(safe-area-inset-right));
+                font-size: 0.8rem;
+                padding: 8px 12px;
+            }
+            
+            /* Reduce animations on mobile for better performance */
+            .stat-card,
+            .control-btn,
+            .table-row {
+                transition: none;
+            }
+            
+            .stat-card:hover,
+            .control-btn:hover,
+            .table-row:hover {
+                transform: none;
+            }
+            
+            /* Optimize scroll performance */
+            .activity-log {
+                -webkit-overflow-scrolling: touch;
+                transform: translateZ(0);
+            }
         }
 
         .live-dot {
@@ -467,22 +779,22 @@
 
         <!-- Charts -->
         <div class="charts-section">
-            <div class="charts-grid" style="grid-template-columns: repeat(4, 1fr); gap: 10px;">
+            <div class="charts-grid">
                 <div class="chart-container">
-                    <div class="chart-title">📈 Requests</div>
-                    <canvas id="requestsChart" width="300" height="180"></canvas>
+                    <div class="chart-title">📈 Requests Over Time</div>
+                    <canvas id="requestsChart"></canvas>
                 </div>
                 <div class="chart-container">
                     <div class="chart-title">🏆 Top Users</div>
-                    <canvas id="usersChart" width="300" height="180"></canvas>
+                    <canvas id="usersChart"></canvas>
                 </div>
                 <div class="chart-container">
-                    <div class="chart-title">💰 API Costs</div>
-                    <canvas id="costChart" width="300" height="180"></canvas>
+                    <div class="chart-title">💰 API Cost Distribution</div>
+                    <canvas id="costChart"></canvas>
                 </div>
                 <div class="chart-container">
                     <div class="chart-title">🔄 Plex Activity</div>
-                    <canvas id="plexChart" width="300" height="180"></canvas>
+                    <canvas id="plexChart"></canvas>
                 </div>
             </div>
         </div>
@@ -541,9 +853,52 @@
         let charts = {};
         let refreshInterval;
 
+        // Mobile optimization detection
+        function detectMobileCapabilities() {
+            const isMobile = window.innerWidth <= 768;
+            const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
+            
+            // Add mobile class to body for CSS targeting
+            if (isMobile) {
+                document.body.classList.add('mobile-device');
+            }
+            
+            if (isIOS) {
+                document.body.classList.add('ios-device');
+            }
+            
+            // Optimize touch events for mobile
+            if (isMobile) {
+                // Prevent double-tap zoom
+                document.addEventListener('touchstart', function(e) {
+                    if (e.touches.length > 1) {
+                        e.preventDefault();
+                    }
+                }, { passive: false });
+                
+                // Handle orientation changes
+                window.addEventListener('orientationchange', function() {
+                    setTimeout(() => {
+                        // Recalculate chart sizes after orientation change
+                        Object.values(charts).forEach(chart => {
+                            if (chart && chart.resize) {
+                                chart.resize();
+                            }
+                        });
+                    }, 300);
+                });
+            }
+            
+            return { isMobile, isIOS };
+        }
+
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Admin dashboard loading...');
+            
+            // Detect mobile capabilities first
+            const { isMobile, isIOS } = detectMobileCapabilities();
+            console.log('Device detection:', { isMobile, isIOS });
             
             // No authentication needed - Discord-based access control
             initializeCharts();
@@ -573,10 +928,14 @@
         }
 
         function startAutoRefresh() {
-            // Refresh every 5 seconds for live data
+            // Adjust refresh rate based on device capabilities
+            const isMobile = window.innerWidth <= 768;
+            const refreshRate = isMobile ? 10000 : 5000; // 10s for mobile, 5s for desktop
+            
+            // Refresh every 5-10 seconds for live data
             refreshInterval = setInterval(() => {
                 loadDashboardData(true); // Silent refresh
-            }, 5000);
+            }, refreshRate);
         }
 
         async function loadDashboardData(silent = false) {
@@ -587,28 +946,28 @@
                 
                 // Load all dashboard data (no authentication needed)
                 const [stats, activity, users, chartData] = await Promise.all([
-                    fetch(`https://notflix-request.vercel.app/api/admin/stats?range=${currentTimeRange}`).then(async r => {
+                    fetch(`/api/admin/stats?range=${currentTimeRange}`).then(async r => {
                         if (!r.ok) {
                             const error = await r.text();
                             throw new Error(`Stats API failed: ${r.status} - ${error}`);
                         }
                         return r.json();
                     }),
-                    fetch(`https://notflix-request.vercel.app/api/admin/activity?range=${currentTimeRange}`).then(async r => {
+                    fetch(`/api/admin/activity?range=${currentTimeRange}`).then(async r => {
                         if (!r.ok) {
                             const error = await r.text();
                             throw new Error(`Activity API failed: ${r.status} - ${error}`);
                         }
                         return r.json();
                     }),
-                    fetch(`https://notflix-request.vercel.app/api/admin/users?range=${currentTimeRange}`).then(async r => {
+                    fetch(`/api/admin/users?range=${currentTimeRange}`).then(async r => {
                         if (!r.ok) {
                             const error = await r.text();
                             throw new Error(`Users API failed: ${r.status} - ${error}`);
                         }
                         return r.json();
                     }),
-                    fetch(`https://notflix-request.vercel.app/api/admin/chart-data?range=${currentTimeRange}`).then(async r => {
+                    fetch(`/api/admin/chart-data?range=${currentTimeRange}`).then(async r => {
                         if (!r.ok) {
                             const error = await r.text();
                             throw new Error(`Chart data API failed: ${r.status} - ${error}`);
@@ -706,14 +1065,14 @@
                             <div class="user-email">${user.email}</div>
                         </div>
                     </div>
-                    <div>
+                    <div data-label="Tier">
                         <span class="tier-badge ${user.tier?.toLowerCase() || 'standard'}">
                             ${user.tier || 'Standard'}
                         </span>
                     </div>
-                    <div>${user.requestCount || 0}</div>
-                    <div>${user.apiCalls || 0}</div>
-                    <div class="cost-amount ${getCostClass(user.cost || 0)}">
+                    <div data-label="Requests">${user.requestCount || 0}</div>
+                    <div data-label="API Calls">${user.apiCalls || 0}</div>
+                    <div data-label="Cost" class="cost-amount ${getCostClass(user.cost || 0)}">
                         $${(user.cost || 0).toFixed(2)}
                     </div>
                 </div>
@@ -721,22 +1080,69 @@
         }
 
         function initializeCharts() {
+            // Detect mobile device
+            const isMobile = window.innerWidth <= 768;
+            
             const chartConfig = {
                 responsive: true,
                 maintainAspectRatio: false,
+                interaction: {
+                    mode: isMobile ? 'point' : 'index',
+                    intersect: false
+                },
                 plugins: {
                     legend: {
-                        labels: { color: '#ffffff' }
+                        labels: { 
+                            color: '#ffffff',
+                            font: {
+                                size: isMobile ? 10 : 12
+                            },
+                            padding: isMobile ? 10 : 20,
+                            usePointStyle: isMobile
+                        },
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        titleFont: {
+                            size: isMobile ? 11 : 13
+                        },
+                        bodyFont: {
+                            size: isMobile ? 10 : 12
+                        },
+                        padding: isMobile ? 8 : 12
                     }
                 },
                 scales: {
                     x: {
-                        ticks: { color: '#ffffff' },
+                        ticks: { 
+                            color: '#ffffff',
+                            font: {
+                                size: isMobile ? 9 : 11
+                            },
+                            maxRotation: isMobile ? 0 : 45,
+                            minRotation: 0,
+                            maxTicksLimit: isMobile ? 6 : 10
+                        },
                         grid: { color: 'rgba(255, 255, 255, 0.1)' }
                     },
                     y: {
-                        ticks: { color: '#ffffff' },
+                        ticks: { 
+                            color: '#ffffff',
+                            font: {
+                                size: isMobile ? 9 : 11
+                            },
+                            maxTicksLimit: isMobile ? 5 : 8
+                        },
                         grid: { color: 'rgba(255, 255, 255, 0.1)' }
+                    }
+                },
+                elements: {
+                    point: {
+                        radius: isMobile ? 2 : 3,
+                        hoverRadius: isMobile ? 4 : 6
+                    },
+                    line: {
+                        borderWidth: isMobile ? 1.5 : 2
                     }
                 }
             };
@@ -764,9 +1170,18 @@
                     maintainAspectRatio: false,
                     plugins: {
                         legend: {
-                            labels: { color: '#ffffff' }
+                            labels: { 
+                                color: '#ffffff',
+                                font: {
+                                    size: 11
+                                },
+                                padding: 15,
+                                usePointStyle: true
+                            },
+                            position: 'bottom'
                         }
-                    }
+                    },
+                    cutout: '50%'
                 }
             });
 
