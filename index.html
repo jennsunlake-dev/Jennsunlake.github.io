@@ -1376,7 +1376,7 @@
     <!-- Navigation -->
     <nav class="nav">
         <div class="nav-inner">
-            <div class="logo">NOTFLIX <span class="logo-sub">powered by Claude</span></div>
+            <div class="logo" onclick="goHome()" style="cursor:pointer;">NOTFLIX <span class="logo-sub">powered by Claude</span></div>
             <div class="nav-actions" id="navActions">
                 <button class="nav-btn" onclick="toggleTheme()" id="themeBtn">
                     <span id="themeIcon">&#9790;</span>
@@ -2032,6 +2032,8 @@
                 } else {
                     grid.innerHTML = '<div class="empty-state"><h3>No results found</h3><p>Try a different search term</p></div>';
                 }
+                // Push search state so browser back returns here
+                history.pushState({ view: 'search', query, mediaType: currentMediaType }, '', window.location.pathname);
             } catch (error) {
                 grid.innerHTML = '<div class="empty-state"><h3>Search unavailable</h3><p>Please try again in a moment</p></div>';
             }
@@ -2052,6 +2054,20 @@
             document.getElementById('searchInput').value = '';
             document.getElementById('searchResults').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
+            if (history.state?.view === 'search') {
+                history.pushState({ view: 'home' }, '', window.location.pathname);
+            }
+        }
+
+        function goHome() {
+            closeDetailModal();
+            document.getElementById('searchInput').value = '';
+            document.getElementById('searchResults').style.display = 'none';
+            document.getElementById('mainContent').style.display = 'block';
+            if (history.state?.view === 'search') {
+                history.pushState({ view: 'home' }, '', window.location.pathname);
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
         // ===== POPULAR CONTENT =====
@@ -2960,6 +2976,19 @@
 
             const whatsnewModal = document.getElementById('whatsnewModal');
             if (whatsnewModal) whatsnewModal.addEventListener('click', e => { if (e.target === whatsnewModal) dismissWhatsNew(); });
+
+            // Browser back/forward: restore search state
+            window.addEventListener('popstate', (e) => {
+                closeDetailModal();
+                if (e.state?.view === 'search' && e.state.query) {
+                    document.getElementById('searchInput').value = e.state.query;
+                    searchMedia();
+                } else {
+                    document.getElementById('searchInput').value = '';
+                    document.getElementById('searchResults').style.display = 'none';
+                    document.getElementById('mainContent').style.display = 'block';
+                }
+            });
         });
 
         // Periodic button refresh (every 2 min) — never reset Plex-available items
