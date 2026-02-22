@@ -2458,13 +2458,14 @@
                 }
             }
 
-            // Plex inventory check (from global plex availability map)
-            if (!userRequest && mediaId && !statusHTML) {
+            // Plex inventory check (from global plex availability map) — overrides stale statuses
+            if (mediaId) {
                 const plexAvail = globalPlexAvailability.get(mediaId);
                 if (plexAvail && plexAvail.available) {
                     btnDisabled = mediaType !== 'tv';
                     btnText = mediaType === 'tv' ? 'Request Episodes' : 'Available on Plex';
                     btnClass = mediaType === 'tv' ? 'default' : 'available';
+                    statusHTML = '';
                 }
             }
 
@@ -3114,10 +3115,17 @@
                 await loadGlobalStatuses();
                 await loadGlobalPlexAvailability();
                 refreshAllCardStatuses();
-            }, 30000);
-        }
+            }, 10000);
 
-        // Plex inventory addon removed — using unified global polling system only
+            // Refresh immediately when user returns to tab (critical for iPhone)
+            document.addEventListener('visibilitychange', async () => {
+                if (document.visibilityState === 'visible') {
+                    await loadGlobalStatuses();
+                    await loadGlobalPlexAvailability();
+                    refreshAllCardStatuses();
+                }
+            });
+        }
 
         // ===== INIT =====
         document.addEventListener('DOMContentLoaded', function() {
