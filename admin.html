@@ -541,11 +541,39 @@
         let charts = {};
         let refreshInterval;
 
+        // Helper: authenticated fetch for admin API calls
+        function adminFetch(url, options = {}) {
+            const token = localStorage.getItem('notflix_admin_token');
+            if (!token) {
+                window.location.href = '/admin/login';
+                return Promise.reject(new Error('No admin token'));
+            }
+            return fetch(url, {
+                ...options,
+                headers: {
+                    ...options.headers,
+                    'Authorization': `Bearer ${token}`
+                }
+            }).then(r => {
+                if (r.status === 401) {
+                    localStorage.removeItem('notflix_admin_token');
+                    window.location.href = '/admin/login';
+                    return Promise.reject(new Error('Session expired'));
+                }
+                return r;
+            });
+        }
+
         // Initialize dashboard
         document.addEventListener('DOMContentLoaded', function() {
             console.log('Admin dashboard loading...');
-            
-            // No authentication needed - Discord-based access control
+
+            // Require admin token
+            if (!localStorage.getItem('notflix_admin_token')) {
+                window.location.href = '/admin/login';
+                return;
+            }
+
             initializeCharts();
             loadDashboardData();
             startAutoRefresh();
@@ -585,30 +613,30 @@
             try {
                 console.log('Loading dashboard data...');
                 
-                // Load all dashboard data (no authentication needed)
+                // Load all dashboard data (authenticated)
                 const [stats, activity, users, chartData] = await Promise.all([
-                    fetch(`https://notflix-request.vercel.app/api/admin/stats?range=${currentTimeRange}`).then(async r => {
+                    adminFetch(`https://notflix-request.vercel.app/api/admin/stats?range=${currentTimeRange}`).then(async r => {
                         if (!r.ok) {
                             const error = await r.text();
                             throw new Error(`Stats API failed: ${r.status} - ${error}`);
                         }
                         return r.json();
                     }),
-                    fetch(`https://notflix-request.vercel.app/api/admin/activity?range=${currentTimeRange}`).then(async r => {
+                    adminFetch(`https://notflix-request.vercel.app/api/admin/activity?range=${currentTimeRange}`).then(async r => {
                         if (!r.ok) {
                             const error = await r.text();
                             throw new Error(`Activity API failed: ${r.status} - ${error}`);
                         }
                         return r.json();
                     }),
-                    fetch(`https://notflix-request.vercel.app/api/admin/users?range=${currentTimeRange}`).then(async r => {
+                    adminFetch(`https://notflix-request.vercel.app/api/admin/users?range=${currentTimeRange}`).then(async r => {
                         if (!r.ok) {
                             const error = await r.text();
                             throw new Error(`Users API failed: ${r.status} - ${error}`);
                         }
                         return r.json();
                     }),
-                    fetch(`https://notflix-request.vercel.app/api/admin/chart-data?range=${currentTimeRange}`).then(async r => {
+                    adminFetch(`https://notflix-request.vercel.app/api/admin/chart-data?range=${currentTimeRange}`).then(async r => {
                         if (!r.ok) {
                             const error = await r.text();
                             throw new Error(`Chart data API failed: ${r.status} - ${error}`);
