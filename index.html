@@ -3192,9 +3192,15 @@
 
         function toggleFeedback() {
             const panel = document.getElementById('feedbackPanel');
-            panel.classList.toggle('active');
-            // Force reflow for animation when opening
             if (panel.classList.contains('active')) {
+                panel.style.transform = 'translateY(20px)';
+                panel.style.opacity = '0';
+                setTimeout(() => {
+                    panel.classList.remove('active');
+                    panel.style.display = 'none';
+                }, 250);
+            } else {
+                panel.classList.add('active');
                 panel.style.display = 'flex';
                 requestAnimationFrame(() => {
                     panel.style.transform = 'translateY(0)';
