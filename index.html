@@ -2175,7 +2175,7 @@
                         } else { btnText = 'Not Available - Retry'; btnClass = 'not_available'; btnDisabled = false; }
                         break;
                     case 'no_storage': btnText = 'No Storage Available'; btnClass = 'no_storage'; break;
-                    case 'already_exists': btnText = 'Already Available'; btnClass = 'already_exists'; break;
+                    case 'already_exists': btnText = 'Available on Plex'; btnClass = 'available'; break;
                     case 'added_to_client': case 'added': btnText = 'Added to Queue'; btnClass = 'added_to_queue'; break;
                     case 'downloading':
                         btnText = 'Downloading';
@@ -2194,7 +2194,7 @@
                     case 'searching': btnText = 'Searching...'; btnClass = 'searching'; break;
                     case 'selecting': btnText = 'Selecting...'; btnClass = 'searching'; break;
                     case 'adding': btnText = 'Adding...'; btnClass = 'searching'; break;
-                    case 'completed': case 'available': btnText = 'Available'; btnClass = 'available'; break;
+                    case 'completed': case 'available': btnText = 'Available on Plex'; btnClass = 'available'; break;
                     default: btnText = userRequest.status; btnClass = 'pending';
                 }
             }
@@ -2766,14 +2766,14 @@
                 'approved': ['Approved', 'approved'],
                 'not_available': ['Not Available - Retry', 'not_available'],
                 'no_storage': ['No Storage', 'no_storage'],
-                'already_exists': ['Available', 'already_exists'],
+                'already_exists': ['Available on Plex', 'available'],
                 'added_to_client': ['Added to Queue', 'added_to_queue'],
                 'added': ['Added to Queue', 'added_to_queue'],
                 'searching': ['Searching...', 'searching'],
                 'selecting': ['Selecting...', 'searching'],
                 'adding': ['Adding...', 'searching'],
-                'completed': ['Available', 'available'],
-                'available': ['Available', 'available'],
+                'completed': ['Available on Plex', 'available'],
+                'available': ['Available on Plex', 'available'],
                 'error': ['Retry Request', 'retry']
             };
 
