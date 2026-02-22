@@ -1332,7 +1332,9 @@
 
         /* ===== WHATS NEW POPUP ===== */
         .whatsnew-modal .modal {
-            max-width: 480px;
+            max-width: 520px;
+            padding: 0;
+            overflow: hidden;
         }
         .whatsnew-body {
             padding: 24px;
@@ -1354,62 +1356,87 @@
             color: var(--text-muted);
             margin-top: 4px;
         }
-        .whatsnew-list {
-            list-style: none;
-            display: flex;
+        .whatsnew-slide {
+            display: none;
             flex-direction: column;
-            gap: 14px;
-            margin-bottom: 20px;
+            align-items: center;
+            animation: slideFadeIn 0.3s ease;
         }
-        .whatsnew-item {
-            display: flex;
-            gap: 12px;
-            align-items: flex-start;
-            padding: 12px;
-            background: var(--bg-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: var(--radius-md);
-        }
-        .whatsnew-item-icon {
-            font-size: 1.5rem;
-            flex-shrink: 0;
-            line-height: 1;
-        }
-        .whatsnew-item-text {
-            flex: 1;
-        }
-        .whatsnew-item-title {
-            font-size: 0.88rem;
-            font-weight: 600;
-            color: var(--text-primary);
-            margin-bottom: 2px;
-        }
-        .whatsnew-item-desc {
-            font-size: 0.78rem;
-            color: var(--text-secondary);
-            line-height: 1.4;
-        }
-        .whatsnew-screenshot {
+        .whatsnew-slide.active { display: flex; }
+        @keyframes slideFadeIn { from { opacity: 0; transform: translateX(12px); } to { opacity: 1; transform: translateX(0); } }
+        .whatsnew-slide-img {
             width: 100%;
+            max-height: 260px;
+            object-fit: contain;
             border-radius: var(--radius-sm);
             border: 1px solid var(--border-subtle);
-            margin-top: 8px;
+            background: var(--bg-primary);
+            margin-bottom: 16px;
         }
-        .whatsnew-dismiss {
+        .whatsnew-slide-title {
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 4px;
+        }
+        .whatsnew-slide-desc {
+            font-size: 0.82rem;
+            color: var(--text-secondary);
+            line-height: 1.5;
+            text-align: center;
+            max-width: 400px;
+        }
+        .whatsnew-dots {
+            display: flex;
+            gap: 8px;
+            justify-content: center;
+            margin: 20px 0 16px;
+        }
+        .whatsnew-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--border-subtle);
+            border: none;
+            padding: 0;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .whatsnew-dot.active { background: var(--accent); transform: scale(1.3); }
+        .whatsnew-nav {
+            display: flex;
+            gap: 10px;
             width: 100%;
+        }
+        .whatsnew-nav-prev, .whatsnew-nav-next {
+            flex: 1;
             padding: 12px;
-            background: var(--accent-gradient);
             border: none;
             border-radius: var(--radius-md);
-            color: white;
             font-size: 0.9rem;
             font-weight: 600;
             font-family: inherit;
             cursor: pointer;
             transition: all var(--transition);
         }
-        .whatsnew-dismiss:hover { box-shadow: 0 4px 16px var(--accent-glow); }
-        .whatsnew-dismiss:active { transform: scale(0.98); }
+        .whatsnew-nav-prev {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-subtle);
+        }
+        .whatsnew-nav-prev:hover { background: var(--bg-card-hover); color: var(--text-primary); }
+        .whatsnew-nav-next {
+            background: var(--accent-gradient);
+            color: white;
+        }
+        .whatsnew-nav-next:hover { box-shadow: 0 4px 16px var(--accent-glow); }
+        .whatsnew-nav-next:active, .whatsnew-nav-prev:active { transform: scale(0.98); }
+        .whatsnew-counter {
+            font-size: 0.72rem;
+            color: var(--text-muted);
+            text-align: center;
+            margin-bottom: 4px;
+        }
 
         /* ===== EPISODE STATUS TAGS ===== */
         .ep-tags {
@@ -1611,32 +1638,53 @@
                 <div class="whatsnew-header">
                     <div class="whatsnew-icon">&#10024;</div>
                     <div class="whatsnew-title">What's New</div>
-                    <div class="whatsnew-ver">Version 3.0</div>
+                    <div class="whatsnew-ver">Version 4.0</div>
                 </div>
-                <ul class="whatsnew-list">
-                    <li class="whatsnew-item">
-                        <div class="whatsnew-item-icon">&#127916;</div>
-                        <div class="whatsnew-item-text">
-                            <div class="whatsnew-item-title">Movie & TV Details</div>
-                            <div class="whatsnew-item-desc">Tap any title to see full descriptions, genres, ratings, and YouTube trailers before you request.</div>
-                        </div>
-                    </li>
-                    <li class="whatsnew-item">
-                        <div class="whatsnew-item-icon">&#128276;</div>
-                        <div class="whatsnew-item-text">
-                            <div class="whatsnew-item-title">Text Notifications</div>
-                            <div class="whatsnew-item-desc">Add your phone number to get maintenance and update alerts. Look for the bell icon in the nav bar.</div>
-                        </div>
-                    </li>
-                    <li class="whatsnew-item">
-                        <div class="whatsnew-item-icon">&#9889;</div>
-                        <div class="whatsnew-item-text">
-                            <div class="whatsnew-item-title">Faster & Smoother</div>
-                            <div class="whatsnew-item-desc">Redesigned cards, better mobile experience, and real-time status updates on your requests.</div>
-                        </div>
-                    </li>
-                </ul>
-                <button class="whatsnew-dismiss" onclick="dismissWhatsNew()">Got it!</button>
+                <div id="whatsnewSlides">
+                    <div class="whatsnew-slide active" data-slide="0">
+                        <img class="whatsnew-slide-img" src="img/slide-redesign.png" alt="New Redesign">
+                        <div class="whatsnew-slide-title">Fresh New Redesign</div>
+                        <div class="whatsnew-slide-desc">A completely revamped look with sleek cards, smoother animations, and a modern dark theme that just feels right.</div>
+                    </div>
+                    <div class="whatsnew-slide" data-slide="1">
+                        <img class="whatsnew-slide-img" src="img/slide-details.png" alt="Movie & TV Details">
+                        <div class="whatsnew-slide-title">Movie & TV Show Details</div>
+                        <div class="whatsnew-slide-desc">Tap any title to see full descriptions, genres, ratings, and release info before you request.</div>
+                    </div>
+                    <div class="whatsnew-slide" data-slide="2">
+                        <img class="whatsnew-slide-img" src="img/slide-trailers.png" alt="Trailers">
+                        <div class="whatsnew-slide-title">Watch Trailers</div>
+                        <div class="whatsnew-slide-desc">Embedded YouTube trailers right in the detail view so you can preview before requesting.</div>
+                    </div>
+                    <div class="whatsnew-slide" data-slide="3">
+                        <img class="whatsnew-slide-img" src="img/slide-selectall.png" alt="Select All Episodes">
+                        <div class="whatsnew-slide-title">Select All Episodes</div>
+                        <div class="whatsnew-slide-desc">Quickly select an entire season with one tap. No more clicking every episode one by one.</div>
+                    </div>
+                    <div class="whatsnew-slide" data-slide="4">
+                        <img class="whatsnew-slide-img" src="img/slide-texts.png" alt="Text Message Updates">
+                        <div class="whatsnew-slide-title">Text Message Updates</div>
+                        <div class="whatsnew-slide-desc">Get notified about maintenance windows, new features, and important updates via text message.</div>
+                    </div>
+                    <div class="whatsnew-slide" data-slide="5">
+                        <img class="whatsnew-slide-img" src="img/slide-feedback.png" alt="Send Feedback">
+                        <div class="whatsnew-slide-title">Send Us Feedback</div>
+                        <div class="whatsnew-slide-desc">Spot a bug or have a suggestion? Use the new chat bubble in the bottom-right corner to tell us directly.</div>
+                    </div>
+                </div>
+                <div class="whatsnew-dots" id="whatsnewDots">
+                    <button class="whatsnew-dot active" data-dot="0"></button>
+                    <button class="whatsnew-dot" data-dot="1"></button>
+                    <button class="whatsnew-dot" data-dot="2"></button>
+                    <button class="whatsnew-dot" data-dot="3"></button>
+                    <button class="whatsnew-dot" data-dot="4"></button>
+                    <button class="whatsnew-dot" data-dot="5"></button>
+                </div>
+                <div class="whatsnew-counter" id="whatsnewCounter">1 of 6</div>
+                <div class="whatsnew-nav">
+                    <button class="whatsnew-nav-prev" id="whatsnewPrev" onclick="whatsnewGo(-1)">Skip</button>
+                    <button class="whatsnew-nav-next" id="whatsnewNext" onclick="whatsnewGo(1)">Next</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1766,21 +1814,46 @@
 
         // ===== WHATS NEW POPUP =====
         function getWhatsNewKey() {
-            return currentUser ? `notflix_whatsnew_v3_${currentUser.id}` : null;
+            return currentUser ? `notflix_whatsnew_v4_${currentUser.id}` : null;
         }
         function shouldShowWhatsNew() {
             const key = getWhatsNewKey();
             if (!key) return false;
             return !localStorage.getItem(key);
         }
+        let whatsnewCurrent = 0;
+        const WHATSNEW_TOTAL = 6;
         function showWhatsNew() {
+            whatsnewCurrent = 0;
+            whatsnewRender();
             document.getElementById('whatsnewModal').classList.add('active');
         }
+        function whatsnewRender() {
+            document.querySelectorAll('.whatsnew-slide').forEach(s => s.classList.remove('active'));
+            document.querySelectorAll('.whatsnew-dot').forEach(d => d.classList.remove('active'));
+            const slide = document.querySelector(`.whatsnew-slide[data-slide="${whatsnewCurrent}"]`);
+            const dot = document.querySelector(`.whatsnew-dot[data-dot="${whatsnewCurrent}"]`);
+            if (slide) slide.classList.add('active');
+            if (dot) dot.classList.add('active');
+            document.getElementById('whatsnewCounter').textContent = `${whatsnewCurrent + 1} of ${WHATSNEW_TOTAL}`;
+            const prev = document.getElementById('whatsnewPrev');
+            const next = document.getElementById('whatsnewNext');
+            prev.textContent = whatsnewCurrent === 0 ? 'Skip' : 'Back';
+            prev.onclick = whatsnewCurrent === 0 ? dismissWhatsNew : () => whatsnewGo(-1);
+            next.textContent = whatsnewCurrent === WHATSNEW_TOTAL - 1 ? 'Done' : 'Next';
+            next.onclick = whatsnewCurrent === WHATSNEW_TOTAL - 1 ? dismissWhatsNew : () => whatsnewGo(1);
+        }
+        function whatsnewGo(dir) {
+            whatsnewCurrent = Math.max(0, Math.min(WHATSNEW_TOTAL - 1, whatsnewCurrent + dir));
+            whatsnewRender();
+        }
+        document.querySelectorAll('.whatsnew-dot').forEach(d => {
+            d.addEventListener('click', () => { whatsnewCurrent = parseInt(d.dataset.dot); whatsnewRender(); });
+        });
         function dismissWhatsNew() {
             const key = getWhatsNewKey();
             if (key) localStorage.setItem(key, 'seen');
             document.getElementById('whatsnewModal').classList.remove('active');
-            // Remove the dot indicator from nav button
             const dot = document.querySelector('.whatsnew-nav-dot');
             if (dot) dot.remove();
         }
