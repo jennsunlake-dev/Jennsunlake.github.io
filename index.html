@@ -125,7 +125,7 @@
                     console.warn('Firebase init failed:', e);
                 }
             }
-            window.tmdbApiKey = config.tmdbApiKey;
+            // TMDB key no longer exposed to frontend — use /api/tmdb/* proxy
             loadPopularContent();
         }).catch(error => {
             console.error('Failed to get backend config:', error);
@@ -1724,7 +1724,7 @@
             'VIP': { name: 'VIP', requests: -1 }
         };
 
-        const WELCOME_WEBHOOK = 'https://discord.com/api/webhooks/1474822974669324424/0LvdtNxbsYfOhoy894C1PQDbjDF4I8kKr7navW1xPxoeIrnWfzd5shEpAM15KRGBTq1V';
+        // Welcome webhook handled server-side via /api/webhook/welcome
 
         const GENRE_MAP = {
             28:'Action',12:'Adventure',16:'Animation',35:'Comedy',80:'Crime',99:'Documentary',
@@ -1765,21 +1765,13 @@
             if (!phone) { showToast('Please enter a phone number', 'error'); return; }
 
             try {
-                await fetch(WELCOME_WEBHOOK, {
+                await fetch('https://notflix-request.vercel.app/api/webhook/welcome', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        embeds: [{
-                            title: 'New User Registration',
-                            color: 0xE50914,
-                            fields: [
-                                { name: 'Email', value: currentUser.email || 'N/A', inline: true },
-                                { name: 'Phone', value: phone, inline: true },
-                                { name: 'Tier', value: (currentUser.tier || 'Standard').toUpperCase(), inline: true },
-                                { name: 'Signed Up', value: new Date().toLocaleDateString('en-US', { year:'numeric', month:'short', day:'numeric' }), inline: true }
-                            ],
-                            timestamp: new Date().toISOString()
-                        }]
+                        email: currentUser.email || 'N/A',
+                        phone: phone,
+                        tier: (currentUser.tier || 'Standard').toUpperCase()
                     })
                 });
                 const key = getWelcomeKey();
@@ -3262,7 +3254,7 @@
 
     <script>
         // ===== FEEDBACK WIDGET =====
-        const FEEDBACK_WEBHOOK = 'https://discord.com/api/webhooks/1474954081872384223/GvspW3d7DASPLRz4vC7k0KIoDKRWRf7RS0FTF_zIxk6CZ0t5MA__Yr-BJTp65btDx9Oh';
+        // Feedback webhook handled server-side via /api/webhook/feedback
 
         document.querySelectorAll('.feedback-category-pill').forEach(pill => {
             pill.addEventListener('click', () => {
@@ -3304,20 +3296,14 @@
             submitBtn.disabled = true;
 
             try {
-                await fetch(FEEDBACK_WEBHOOK, {
+                await fetch('https://notflix-request.vercel.app/api/webhook/feedback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        embeds: [{
-                            title: '\u{1F4EC} New Feedback',
-                            color: 15158332,
-                            fields: [
-                                { name: 'From', value: `${userName} (${userEmail})`, inline: true },
-                                { name: 'Category', value: category.charAt(0).toUpperCase() + category.slice(1), inline: true },
-                                { name: 'Message', value: text }
-                            ],
-                            timestamp: new Date().toISOString()
-                        }]
+                        email: userEmail,
+                        name: userName,
+                        category: category,
+                        message: text
                     })
                 });
 
