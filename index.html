@@ -1080,6 +1080,99 @@
             background: var(--error);
         }
 
+        /* ===== FEEDBACK WIDGET ===== */
+        .feedback-fab {
+            position: fixed;
+            bottom: 24px;
+            right: 24px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
+            background: var(--accent-gradient);
+            color: #fff;
+            border: none;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 500;
+            box-shadow: 0 4px 16px var(--accent-glow);
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        .feedback-fab:hover { transform: scale(1.1); box-shadow: 0 6px 24px var(--accent-glow); }
+        .feedback-fab.pulse { animation: fabPulse 2s ease-in-out 3; }
+        @keyframes fabPulse {
+            0%, 100% { box-shadow: 0 4px 16px var(--accent-glow); }
+            50% { box-shadow: 0 4px 32px var(--accent-glow), 0 0 0 12px rgba(229, 9, 20, 0.1); }
+        }
+        .feedback-panel {
+            position: fixed;
+            bottom: 90px;
+            right: 24px;
+            width: 360px;
+            max-height: 420px;
+            background: var(--bg-secondary);
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-modal);
+            z-index: 501;
+            display: none;
+            flex-direction: column;
+            overflow: hidden;
+            transform: translateY(20px);
+            opacity: 0;
+            transition: transform 0.25s ease, opacity 0.25s ease;
+        }
+        .feedback-panel.active { display: flex; transform: translateY(0); opacity: 1; }
+        .feedback-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px;
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .feedback-title { font-weight: 700; font-size: 16px; color: var(--text-primary); }
+        .feedback-body { padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+        .feedback-category { display: flex; gap: 8px; flex-wrap: wrap; }
+        .feedback-category-pill {
+            padding: 6px 14px;
+            border-radius: 20px;
+            border: 1px solid var(--border-subtle);
+            background: transparent;
+            color: var(--text-secondary);
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+        .feedback-category-pill:hover { border-color: var(--accent); color: var(--text-primary); }
+        .feedback-category-pill.active { background: var(--accent-gradient); color: #fff; border-color: transparent; }
+        .feedback-textarea {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-subtle);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-family: inherit;
+            font-size: 14px;
+            resize: vertical;
+            box-sizing: border-box;
+        }
+        .feedback-textarea:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-glow); }
+        .feedback-success {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 12px;
+            padding: 40px 20px;
+            text-align: center;
+        }
+        .feedback-success .checkmark { font-size: 48px; animation: feedbackPop 0.3s ease; }
+        @keyframes feedbackPop { 0% { transform: scale(0); } 60% { transform: scale(1.2); } 100% { transform: scale(1); } }
+        @media (max-width: 480px) {
+            .feedback-panel { left: 12px; right: 12px; width: auto; bottom: 84px; }
+            .feedback-fab { bottom: 16px; right: 16px; }
+        }
+
         /* ===== MEDIA DETAIL MODAL ===== */
         .detail-modal .modal {
             max-width: 720px;
@@ -1942,6 +2035,18 @@
             }
             // Update notification bell
             updateNotifyIcon();
+
+            // Show feedback FAB
+            const fab = document.getElementById('feedbackFab');
+            if (fab) {
+                fab.style.display = 'flex';
+                fab.style.alignItems = 'center';
+                fab.style.justifyContent = 'center';
+                if (!localStorage.getItem('feedbackFabSeen')) {
+                    fab.classList.add('pulse');
+                    localStorage.setItem('feedbackFabSeen', '1');
+                }
+            }
         }
 
         function updateNavUser() {
@@ -3053,6 +3158,112 @@
         // Run immediately, then every 30 minutes
         setTimeout(clearStuckStatuses, 10000);
         setInterval(clearStuckStatuses, 30 * 60 * 1000);
+    </script>
+
+    <!-- Feedback Widget -->
+    <button class="feedback-fab" id="feedbackFab" onclick="toggleFeedback()" title="Send Feedback" style="display:none;">&#128172;</button>
+    <div class="feedback-panel" id="feedbackPanel">
+        <div class="feedback-header">
+            <span class="feedback-title">Send Feedback</span>
+            <button class="modal-close" onclick="toggleFeedback()">&#10005;</button>
+        </div>
+        <div class="feedback-body" id="feedbackBody">
+            <div class="feedback-category" id="feedbackCategory">
+                <button class="feedback-category-pill active" data-cat="suggestion">&#128161; Suggestion</button>
+                <button class="feedback-category-pill" data-cat="bug">&#128027; Bug</button>
+                <button class="feedback-category-pill" data-cat="compliment">&#10084;&#65039; Love it</button>
+                <button class="feedback-category-pill" data-cat="other">&#128172; Other</button>
+            </div>
+            <textarea class="feedback-textarea" id="feedbackText" placeholder="Tell us what you think..." rows="5"></textarea>
+            <button class="modal-confirm" style="width:100%;" onclick="submitFeedback()">Send Feedback</button>
+        </div>
+    </div>
+
+    <script>
+        // ===== FEEDBACK WIDGET =====
+        const FEEDBACK_WEBHOOK = 'https://discord.com/api/webhooks/1474954081872384223/GvspW3d7DASPLRz4vC7k0KIoDKRWRf7RS0FTF_zIxk6CZ0t5MA__Yr-BJTp65btDx9Oh';
+
+        document.querySelectorAll('.feedback-category-pill').forEach(pill => {
+            pill.addEventListener('click', () => {
+                document.querySelectorAll('.feedback-category-pill').forEach(p => p.classList.remove('active'));
+                pill.classList.add('active');
+            });
+        });
+
+        function toggleFeedback() {
+            const panel = document.getElementById('feedbackPanel');
+            panel.classList.toggle('active');
+            // Force reflow for animation when opening
+            if (panel.classList.contains('active')) {
+                panel.style.display = 'flex';
+                requestAnimationFrame(() => {
+                    panel.style.transform = 'translateY(0)';
+                    panel.style.opacity = '1';
+                });
+            }
+        }
+
+        async function submitFeedback() {
+            const text = document.getElementById('feedbackText').value.trim();
+            if (!text) { showToast('Please enter some feedback', 'error'); return; }
+
+            const category = document.querySelector('.feedback-category-pill.active')?.dataset.cat || 'other';
+            const userName = currentUser?.displayName || currentUser?.email || 'Unknown';
+            const userEmail = currentUser?.email || '';
+
+            const body = document.getElementById('feedbackBody');
+            const submitBtn = body.querySelector('.modal-confirm');
+            submitBtn.textContent = 'Sending...';
+            submitBtn.disabled = true;
+
+            try {
+                await fetch(FEEDBACK_WEBHOOK, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        embeds: [{
+                            title: '\u{1F4EC} New Feedback',
+                            color: 15158332,
+                            fields: [
+                                { name: 'From', value: `${userName} (${userEmail})`, inline: true },
+                                { name: 'Category', value: category.charAt(0).toUpperCase() + category.slice(1), inline: true },
+                                { name: 'Message', value: text }
+                            ],
+                            timestamp: new Date().toISOString()
+                        }]
+                    })
+                });
+
+                body.innerHTML = '<div class="feedback-success"><span class="checkmark">&#10004;&#65039;</span><span style="font-size:18px;font-weight:600;color:var(--text-primary);">Thanks for your feedback!</span></div>';
+                setTimeout(() => {
+                    const panel = document.getElementById('feedbackPanel');
+                    panel.classList.remove('active');
+                    // Reset form after close
+                    setTimeout(() => {
+                        body.innerHTML = `
+                            <div class="feedback-category" id="feedbackCategory">
+                                <button class="feedback-category-pill active" data-cat="suggestion">&#128161; Suggestion</button>
+                                <button class="feedback-category-pill" data-cat="bug">&#128027; Bug</button>
+                                <button class="feedback-category-pill" data-cat="compliment">&#10084;&#65039; Love it</button>
+                                <button class="feedback-category-pill" data-cat="other">&#128172; Other</button>
+                            </div>
+                            <textarea class="feedback-textarea" id="feedbackText" placeholder="Tell us what you think..." rows="5"></textarea>
+                            <button class="modal-confirm" style="width:100%;" onclick="submitFeedback()">Send Feedback</button>
+                        `;
+                        document.querySelectorAll('.feedback-category-pill').forEach(pill => {
+                            pill.addEventListener('click', () => {
+                                document.querySelectorAll('.feedback-category-pill').forEach(p => p.classList.remove('active'));
+                                pill.classList.add('active');
+                            });
+                        });
+                    }, 300);
+                }, 2000);
+            } catch (e) {
+                showToast('Failed to send feedback. Try again.', 'error');
+                submitBtn.textContent = 'Send Feedback';
+                submitBtn.disabled = false;
+            }
+        }
     </script>
 </body>
 </html>
