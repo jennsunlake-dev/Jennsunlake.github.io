@@ -244,6 +244,8 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            flex-shrink: 1;
+            min-width: 0;
         }
 
         .nav-btn {
@@ -941,9 +943,18 @@
                 gap: 10px;
             }
             .section-title { font-size: 1.1rem; }
-            .nav-inner { padding: 0 12px; }
+            .nav-inner { padding: 0 12px; gap: 10px; }
             .logo { font-size: 1.25rem; }
+            .logo-sub { display: none; }
             .requests-badge { display: none; }
+            .nav-actions { gap: 6px; }
+            .nav-btn-label { display: none; }
+            .nav-btn { padding: 7px 9px; font-size: 0.9rem; }
+            .whatsnew-nav-btn { padding: 7px 9px; }
+            .notify-btn { padding: 7px 9px; }
+            .user-pill { padding: 3px 8px 3px 3px; }
+            .user-pill img { width: 24px; height: 24px; }
+            .user-pill-info { display: none; }
             .modal { width: 100%; max-width: 100%; border-radius: var(--radius-xl) var(--radius-xl) 0 0; max-height: 90vh; align-self: flex-end; }
             .modal-body { padding: 16px; }
             .modal-header, .modal-footer { padding-left: 16px; padding-right: 16px; }
@@ -958,7 +969,11 @@
             .card-body { padding: 10px; }
             .card-title { font-size: 0.82rem; }
             .card-overview { display: none; }
-            .user-pill-info { display: none; }
+            .nav-actions { gap: 4px; }
+            .nav-btn { padding: 6px 8px; }
+            .whatsnew-nav-btn { padding: 6px 8px; }
+            .notify-btn { padding: 6px 8px; }
+            .user-pill { display: none; }
         }
 
         /* Hide content when not signed in */
@@ -1936,7 +1951,7 @@
 
             const showNewDot = shouldShowWhatsNew() ? '<span class="whatsnew-nav-dot"></span>' : '';
             document.getElementById('navActions').innerHTML = `
-                <button class="whatsnew-nav-btn" onclick="showWhatsNew()" title="What's New">&#10024; New${showNewDot}</button>
+                <button class="whatsnew-nav-btn" onclick="showWhatsNew()" title="What's New">&#10024;<span class="nav-btn-label"> New</span>${showNewDot}</button>
                 <div class="requests-badge" id="requestsBadge">${remaining} left</div>
                 <div class="user-pill">
                     <img src="${currentUser.picture}" alt="">
@@ -1945,7 +1960,7 @@
                         <span class="user-pill-tier ${tierClass}">${tierName === 'VIP' ? 'VIP \u{1F451}' : tierName}</span>
                     </div>
                 </div>
-                <button class="nav-btn" onclick="signOut()">Sign Out</button>
+                <button class="nav-btn" onclick="signOut()" title="Sign Out">&#x2190;<span class="nav-btn-label"> Sign Out</span></button>
                 <button class="nav-btn" onclick="toggleTheme()" id="themeBtn"><span id="themeIcon">${document.body.classList.contains('light-mode') ? '&#9788;' : '&#9790;'}</span></button>
             `;
         }
