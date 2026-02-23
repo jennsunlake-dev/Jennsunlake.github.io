@@ -1730,6 +1730,7 @@
         let userRequests = new Map();
         let globalRequestStatuses = new Map();
         let globalPlexAvailability = new Map();
+        let globalAvailabilityCache = new Map();
         let userTier = 'STANDARD';
         let weeklyLimit = 5;
         let selectedMedia = null;
@@ -2464,7 +2465,6 @@
                         btnDisabled = false;
                         btnText = 'Available on Plex';
                         btnClass = 'available';
-                        statusHTML = `<div class="status-info success">All seasons available on Plex</div>`;
                     } else {
                         btnDisabled = true;
                         btnText = 'Available on Plex';
@@ -2473,10 +2473,8 @@
                     availBadge = 'on-plex';
                 } else if (globalAvailability.globalStatus === 'partially_available' && mediaType === 'tv') {
                     btnDisabled = false;
-                    const count = globalAvailability.availableEpisodeCount || 0;
                     btnText = 'Request Missing Episodes';
                     btnClass = 'partial';
-                    statusHTML = `<div class="status-info warning">${count} episodes on Plex - request missing ones</div>`;
                     availBadge = 'partial';
                 } else if (globalAvailability.globalStatus === 'not_available' && globalAvailability.countdownInfo && !globalAvailability.countdownInfo.expired) {
                     btnDisabled = true;
@@ -2496,7 +2494,6 @@
                         btnText = 'Available on Plex';
                         btnClass = 'available';
                         availBadge = 'on-plex';
-                        statusHTML = `<div class="status-info success">Available on Plex</div>`;
                     } else {
                         btnDisabled = true;
                         btnText = 'Available on Plex';
@@ -2530,6 +2527,7 @@
             const userRequest = userRequests.get(mediaId);
             let globalAvailability = null;
             try { if (window.apiClient) globalAvailability = await window.apiClient.getGlobalAvailability(item.id, mediaType); } catch (e) {}
+            if (globalAvailability) globalAvailabilityCache.set(mediaId, globalAvailability);
 
             const { btnText, btnClass, btnDisabled, statusHTML, availBadge } = getStatusInfo(mediaType, userRequest, globalAvailability, mediaId);
 
@@ -3135,7 +3133,8 @@
                 if (!btn) return;
                 const mediaType = mediaId.split('-')[0];
                 const userRequest = userRequests.get(mediaId);
-                const { btnText, btnClass, btnDisabled, statusHTML, availBadge } = getStatusInfo(mediaType, userRequest, null, mediaId);
+                const cachedAvailability = globalAvailabilityCache.get(mediaId) || null;
+                const { btnText, btnClass, btnDisabled, statusHTML, availBadge } = getStatusInfo(mediaType, userRequest, cachedAvailability, mediaId);
 
                 btn.textContent = btnText;
                 btn.className = `req-btn ${btnClass}`;
