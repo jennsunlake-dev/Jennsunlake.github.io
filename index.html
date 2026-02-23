@@ -2920,7 +2920,7 @@
             try {
                 const response = await fetch(`${window.apiClient.baseUrl}/api/requests`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: window.apiClient._authHeaders(),
                     body: JSON.stringify(requestData)
                 });
                 const result = await response.json();
