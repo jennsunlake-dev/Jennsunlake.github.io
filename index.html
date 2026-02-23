@@ -21,6 +21,22 @@
                 this.baseUrl = 'https://notflix-request.vercel.app';
                 this.currentUser = null;
                 this.idToken = null;
+                this.userToken = localStorage.getItem('notflix_user_token') || null;
+            }
+            _authHeaders() {
+                const headers = { 'Content-Type': 'application/json' };
+                if (this.userToken) headers['Authorization'] = `Bearer ${this.userToken}`;
+                return headers;
+            }
+            _handleAuthError(response) {
+                if (response.status === 401) {
+                    localStorage.removeItem('plexUser');
+                    localStorage.removeItem('notflix_user_token');
+                    this.userToken = null;
+                    location.reload();
+                    return true;
+                }
+                return false;
             }
             async getConfig() {
                 const response = await fetch(`${this.baseUrl}/api/config`);
@@ -36,7 +52,10 @@
                 return await response.json();
             }
             async getUserRequests(userId) {
-                const response = await fetch(`${this.baseUrl}/api/requests/${userId}`);
+                const response = await fetch(`${this.baseUrl}/api/requests/${userId}`, {
+                    headers: this._authHeaders()
+                });
+                if (this._handleAuthError(response)) return;
                 if (!response.ok) throw new Error('Failed to fetch requests');
                 return await response.json();
             }
@@ -69,10 +88,18 @@
             async createRequest(requestData) {
                 const response = await fetch(`${this.baseUrl}/api/requests`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: this._authHeaders(),
                     body: JSON.stringify(requestData)
                 });
-                if (!response.ok) throw new Error('Failed to create request');
+                if (this._handleAuthError(response)) return;
+                if (response.status === 429) {
+                    const data = await response.json();
+                    throw new Error(data.error || 'Weekly request limit reached.');
+                }
+                if (!response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    throw new Error(data.error || data.message || 'Failed to create request');
+                }
                 return await response.json();
             }
             async getGlobalStatuses() {
@@ -86,12 +113,16 @@
                 return await response.json();
             }
             async getUserData(userId) {
-                const response = await fetch(`${this.baseUrl}/api/user/${userId}`);
+                const response = await fetch(`${this.baseUrl}/api/user/${userId}`, {
+                    headers: this._authHeaders()
+                });
+                if (this._handleAuthError(response)) return;
                 if (!response.ok) throw new Error('Failed to fetch user data');
                 return await response.json();
             }
             listenForUpdates(userId, callback) {
-                const eventSource = new EventSource(`${this.baseUrl}/api/requests/${userId}/listen`);
+                const tokenParam = this.userToken ? `?token=${this.userToken}` : '';
+                const eventSource = new EventSource(`${this.baseUrl}/api/requests/${userId}/listen${tokenParam}`);
                 eventSource.onmessage = function(event) {
                     try { callback(JSON.parse(event.data)); } catch (e) { console.error('SSE parse error:', e); }
                 };
@@ -2110,13 +2141,20 @@
         // ===== AUTH =====
         function checkSavedSession() {
             const saved = localStorage.getItem('plexUser');
+            const savedToken = localStorage.getItem('notflix_user_token');
             if (saved) {
                 try {
+                    if (!savedToken) {
+                        localStorage.removeItem('plexUser');
+                        return false;
+                    }
                     currentUser = JSON.parse(saved);
+                    window.apiClient.userToken = savedToken;
                     updateUIForSignedInUser();
                     return true;
                 } catch (e) {
                     localStorage.removeItem('plexUser');
+                    localStorage.removeItem('notflix_user_token');
                 }
             }
             return false;
@@ -2146,6 +2184,10 @@
                 if (response.ok) {
                     const result = await response.json();
                     if (result.authorized) {
+                        if (result.token) {
+                            localStorage.setItem('notflix_user_token', result.token);
+                            window.apiClient.userToken = result.token;
+                        }
                         currentUser = {
                             id: 'email_' + email.replace(/[.@]/g, '_'),
                             name: email.split('@')[0],
@@ -2164,6 +2206,8 @@
                     } else {
                         showToast('This email is not authorized. Contact an admin via Discord.', 'error');
                     }
+                } else if (response.status === 429) {
+                    showToast('Too many sign-in attempts. Try again in 15 minutes.', 'error');
                 } else {
                     showToast('Unable to verify access. Try again later.', 'error');
                 }
@@ -2177,6 +2221,8 @@
 
         function signOut() {
             localStorage.removeItem('plexUser');
+            localStorage.removeItem('notflix_user_token');
+            if (window.apiClient) window.apiClient.userToken = null;
             currentUser = null;
             location.reload();
         }
