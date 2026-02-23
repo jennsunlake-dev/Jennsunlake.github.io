@@ -2378,14 +2378,14 @@
 
                 if (isOld && ['pending', 'processing', 'error'].includes(userRequest.status)) {
                     userRequests.delete(`${mediaType}-${userRequest.tmdbId}`);
-                    return { btnText, btnClass, btnDisabled, statusHTML };
+                    return { btnText, btnClass, btnDisabled, statusHTML, availBadge };
                 }
 
-                if (mediaType === 'tv' && userRequest.selectedEpisodes && !['not_available', 'error'].includes(userRequest.status)) {
+                if (mediaType === 'tv' && userRequest.selectedEpisodes && !['not_available', 'error', 'completed', 'available'].includes(userRequest.status)) {
                     const info = formatRequestedEpisodes(userRequest.selectedEpisodes, userRequest.status);
                     if (info) statusHTML = `<div class="status-info info">${info}</div>`;
                     btnText = 'Request More Episodes';
-                    return { btnText, btnClass, btnDisabled, statusHTML };
+                    return { btnText, btnClass, btnDisabled, statusHTML, availBadge };
                 }
 
                 btnDisabled = true;
