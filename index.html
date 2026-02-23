@@ -565,6 +565,31 @@
         }
         .type-badge.tv { background: rgba(180, 7, 16, 0.9); }
 
+        /* Availability badge on poster (top-right corner) */
+        .avail-badge {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            z-index: 2;
+            line-height: 1;
+        }
+        .avail-badge.on-plex {
+            background: rgba(5, 150, 105, 0.92);
+            color: white;
+            box-shadow: 0 2px 8px rgba(5, 150, 105, 0.4);
+        }
+        .avail-badge.partial {
+            background: rgba(245, 158, 11, 0.92);
+            color: #000;
+            box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
+        }
+
         .rating-badge {
             font-size: 0.7rem;
             font-weight: 600;
@@ -662,6 +687,7 @@
         .req-btn.error { background: linear-gradient(135deg, #dc2626, #ef4444); }
         .req-btn.retry { background: var(--accent-gradient); animation: pulse-retry 2s infinite; }
         .req-btn.available { background: linear-gradient(135deg, #059669, #10b981); }
+        .req-btn.partial { background: linear-gradient(135deg, #d97706, #f59e0b); }
         .req-btn.searching { background: linear-gradient(135deg, #9333ea, #a855f7); animation: pulse-download 2s infinite; }
 
         @keyframes pulse-download {
@@ -2342,6 +2368,7 @@
             let btnClass = 'default';
             let btnDisabled = false;
             let statusHTML = '';
+            let availBadge = ''; // poster overlay badge: 'on-plex', 'partial', or ''
 
             // Check user request first
             if (userRequest) {
@@ -2433,15 +2460,24 @@
             // Global availability overrides (Plex/completed)
             if (globalAvailability) {
                 if (globalAvailability.globalStatus === 'available') {
-                    btnDisabled = mediaType !== 'tv';
-                    btnText = mediaType === 'tv' ? 'Request Episodes' : 'Available on Plex';
-                    btnClass = mediaType === 'tv' ? 'default' : 'available';
+                    if (mediaType === 'tv') {
+                        btnDisabled = false;
+                        btnText = 'Available on Plex';
+                        btnClass = 'available';
+                        statusHTML = `<div class="status-info success">All seasons available on Plex</div>`;
+                    } else {
+                        btnDisabled = true;
+                        btnText = 'Available on Plex';
+                        btnClass = 'available';
+                    }
+                    availBadge = 'on-plex';
                 } else if (globalAvailability.globalStatus === 'partially_available' && mediaType === 'tv') {
                     btnDisabled = false;
                     const count = globalAvailability.availableEpisodeCount || 0;
                     btnText = 'Request Missing Episodes';
-                    btnClass = 'default';
-                    statusHTML = `<div class="status-info warning">${count} episodes available - request missing ones</div>`;
+                    btnClass = 'partial';
+                    statusHTML = `<div class="status-info warning">${count} episodes on Plex - request missing ones</div>`;
+                    availBadge = 'partial';
                 } else if (globalAvailability.globalStatus === 'not_available' && globalAvailability.countdownInfo && !globalAvailability.countdownInfo.expired) {
                     btnDisabled = true;
                     btnText = globalAvailability.countdownInfo.message;
@@ -2451,13 +2487,23 @@
             }
 
             // Plex inventory check (from global plex availability map) — overrides stale statuses
+            // but does NOT override a more-detailed partial determination from globalAvailability
             if (mediaId) {
                 const plexAvail = globalPlexAvailability.get(mediaId);
-                if (plexAvail && plexAvail.available) {
-                    btnDisabled = mediaType !== 'tv';
-                    btnText = mediaType === 'tv' ? 'Request Episodes' : 'Available on Plex';
-                    btnClass = mediaType === 'tv' ? 'default' : 'available';
-                    statusHTML = '';
+                if (plexAvail && plexAvail.available && availBadge !== 'partial') {
+                    if (mediaType === 'tv') {
+                        btnDisabled = false;
+                        btnText = 'Available on Plex';
+                        btnClass = 'available';
+                        availBadge = 'on-plex';
+                        statusHTML = `<div class="status-info success">Available on Plex</div>`;
+                    } else {
+                        btnDisabled = true;
+                        btnText = 'Available on Plex';
+                        btnClass = 'available';
+                        availBadge = 'on-plex';
+                        statusHTML = '';
+                    }
                 }
             }
 
@@ -2468,7 +2514,7 @@
                 btnClass = 'pending';
             }
 
-            return { btnText, btnClass, btnDisabled, statusHTML };
+            return { btnText, btnClass, btnDisabled, statusHTML, availBadge };
         }
 
         async function createMediaCard(item) {
@@ -2485,7 +2531,7 @@
             let globalAvailability = null;
             try { if (window.apiClient) globalAvailability = await window.apiClient.getGlobalAvailability(item.id, mediaType); } catch (e) {}
 
-            const { btnText, btnClass, btnDisabled, statusHTML } = getStatusInfo(mediaType, userRequest, globalAvailability, mediaId);
+            const { btnText, btnClass, btnDisabled, statusHTML, availBadge } = getStatusInfo(mediaType, userRequest, globalAvailability, mediaId);
 
             // Store availability data
             if (globalAvailability?.availableEpisodes) {
@@ -2502,9 +2548,16 @@
             const rating = item.vote_average ? item.vote_average.toFixed(1) : null;
             const plexAvail = globalAvailability?.plexAvailable;
 
+            const badgeHTML = availBadge === 'on-plex'
+                ? '<span class="avail-badge on-plex">On Plex</span>'
+                : availBadge === 'partial'
+                    ? '<span class="avail-badge partial">Partial</span>'
+                    : '';
+
             card.innerHTML = `
                 <div class="poster-wrap">
                     <img src="${posterUrl}" alt="${title}" class="media-poster" loading="lazy">
+                    ${badgeHTML}
                     <div class="poster-overlay">
                         <span class="type-badge ${mediaType === 'tv' ? 'tv' : ''}">${mediaType === 'tv' ? 'TV' : 'Movie'}</span>
                         ${rating ? `<span class="rating-badge">\u2605 ${rating}</span>` : ''}
@@ -3082,7 +3135,7 @@
                 if (!btn) return;
                 const mediaType = mediaId.split('-')[0];
                 const userRequest = userRequests.get(mediaId);
-                const { btnText, btnClass, btnDisabled, statusHTML } = getStatusInfo(mediaType, userRequest, null, mediaId);
+                const { btnText, btnClass, btnDisabled, statusHTML, availBadge } = getStatusInfo(mediaType, userRequest, null, mediaId);
 
                 btn.textContent = btnText;
                 btn.className = `req-btn ${btnClass}`;
@@ -3098,6 +3151,29 @@
                     statusDiv.outerHTML = statusHTML;
                 } else if (statusDiv) {
                     statusDiv.remove();
+                }
+
+                // Update availability badge on poster
+                const posterWrap = card.querySelector('.poster-wrap');
+                if (posterWrap) {
+                    let badge = posterWrap.querySelector('.avail-badge');
+                    if (availBadge === 'on-plex') {
+                        if (!badge) {
+                            badge = document.createElement('span');
+                            posterWrap.insertBefore(badge, posterWrap.querySelector('.poster-overlay'));
+                        }
+                        badge.className = 'avail-badge on-plex';
+                        badge.textContent = 'On Plex';
+                    } else if (availBadge === 'partial') {
+                        if (!badge) {
+                            badge = document.createElement('span');
+                            posterWrap.insertBefore(badge, posterWrap.querySelector('.poster-overlay'));
+                        }
+                        badge.className = 'avail-badge partial';
+                        badge.textContent = 'Partial';
+                    } else if (badge) {
+                        badge.remove();
+                    }
                 }
             });
         }
