@@ -436,15 +436,13 @@
             top: calc(100% + 8px);
             left: -20px;
             right: -20px;
-            background: var(--bg-glass);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid var(--border-subtle);
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-hover);
             border-radius: var(--radius-md);
             max-height: 420px;
             overflow-y: auto;
             z-index: 500;
-            box-shadow: var(--shadow-card);
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
         }
         .typeahead-dropdown.visible { display: block; }
 
@@ -462,7 +460,7 @@
         .typeahead-item:last-child { border-radius: 0 0 var(--radius-md) var(--radius-md); }
         .typeahead-item:only-child { border-radius: var(--radius-md); }
         .typeahead-item:hover,
-        .typeahead-item.active { background: var(--accent-glow); }
+        .typeahead-item.active { background: rgba(255, 255, 255, 0.1); }
 
         .typeahead-poster {
             width: 40px;
@@ -2285,8 +2283,13 @@
                 const data = await response.json();
 
                 const filtered = (data.results || [])
-                    .filter(item => item.media_type === 'movie' || item.media_type === 'tv')
-                    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+                    .filter(item => (item.media_type === 'movie' || item.media_type === 'tv') && (item.poster_path || item.vote_count > 0))
+                    .sort((a, b) => {
+                        // Rank by vote_count first (well-known titles), then popularity
+                        const aScore = (a.vote_count || 0) * 2 + (a.popularity || 0);
+                        const bScore = (b.vote_count || 0) * 2 + (b.popularity || 0);
+                        return bScore - aScore;
+                    })
                     .slice(0, 8);
 
                 typeaheadResults = filtered;
