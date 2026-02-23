@@ -392,6 +392,7 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            position: relative;
         }
         .search-input {
             flex: 1;
@@ -425,6 +426,82 @@
             -webkit-tap-highlight-color: transparent;
         }
         .search-submit:active { transform: scale(0.95); }
+
+        /* Type-ahead dropdown */
+        .typeahead-dropdown {
+            display: none;
+            position: absolute;
+            top: calc(100% + 8px);
+            left: -20px;
+            right: -20px;
+            background: var(--bg-glass);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--border-subtle);
+            border-radius: var(--radius-md);
+            max-height: 420px;
+            overflow-y: auto;
+            z-index: 500;
+            box-shadow: var(--shadow-card);
+        }
+        .typeahead-dropdown.visible { display: block; }
+
+        .typeahead-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 10px 14px;
+            cursor: pointer;
+            transition: background var(--transition);
+            border-bottom: 1px solid var(--border-subtle);
+        }
+        .typeahead-item:last-child { border-bottom: none; }
+        .typeahead-item:first-child { border-radius: var(--radius-md) var(--radius-md) 0 0; }
+        .typeahead-item:last-child { border-radius: 0 0 var(--radius-md) var(--radius-md); }
+        .typeahead-item:only-child { border-radius: var(--radius-md); }
+        .typeahead-item:hover,
+        .typeahead-item.active { background: var(--accent-glow); }
+
+        .typeahead-poster {
+            width: 40px;
+            height: 60px;
+            border-radius: 6px;
+            object-fit: cover;
+            flex-shrink: 0;
+            background: var(--bg-glass);
+        }
+        .typeahead-info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+            min-width: 0;
+            flex: 1;
+        }
+        .typeahead-title {
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-weight: 600;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .typeahead-year {
+            color: var(--text-muted);
+            font-size: 0.78rem;
+        }
+        .typeahead-type-badge {
+            background: var(--accent-gradient);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 0.65rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            flex-shrink: 0;
+        }
+        .typeahead-type-badge.tv {
+            background: linear-gradient(135deg, #1DB954, #1ed760);
+        }
 
         .filter-pills {
             display: flex;
@@ -1549,8 +1626,9 @@
             <div class="search-bar">
                 <div class="search-row">
                     <span class="search-icon">&#128269;</span>
-                    <input type="text" class="search-input" id="searchInput" placeholder="Search movies and TV shows...">
+                    <input type="text" class="search-input" id="searchInput" placeholder="Search movies and TV shows..." autocomplete="off">
                     <button class="search-submit" id="searchBtn" onclick="searchMedia()">Search</button>
+                    <div class="typeahead-dropdown" id="typeaheadDropdown"></div>
                 </div>
                 <div class="filter-pills">
                     <button class="filter-pill active" data-type="multi" onclick="changeMediaType('multi')">All</button>
@@ -2192,8 +2270,133 @@
             }
         }
 
+        // ===== TYPE-AHEAD SEARCH =====
+        let typeaheadTimeout = null;
+        let typeaheadActiveIndex = -1;
+        let typeaheadResults = [];
+
+        async function fetchTypeahead(query) {
+            try {
+                const url = `${PROXY_BASE}/search/multi?query=${encodeURIComponent(query)}`;
+                const response = await fetch(url);
+                if (!response.ok) return;
+                const data = await response.json();
+
+                const filtered = (data.results || [])
+                    .filter(item => item.media_type === 'movie' || item.media_type === 'tv')
+                    .sort((a, b) => (b.popularity || 0) - (a.popularity || 0))
+                    .slice(0, 8);
+
+                typeaheadResults = filtered;
+                typeaheadActiveIndex = -1;
+                renderTypeahead(filtered);
+            } catch (err) {
+                console.error('Typeahead fetch error:', err);
+            }
+        }
+
+        function renderTypeahead(items) {
+            const dropdown = document.getElementById('typeaheadDropdown');
+            if (!dropdown) return;
+
+            if (items.length === 0) {
+                hideTypeahead();
+                return;
+            }
+
+            dropdown.innerHTML = items.map((item, i) => {
+                const title = item.title || item.name || '';
+                const rawDate = item.release_date || item.first_air_date || '';
+                const year = rawDate ? rawDate.substring(0, 4) : '';
+                const isTV = item.media_type === 'tv';
+                const posterSrc = item.poster_path
+                    ? `https://image.tmdb.org/t/p/w92${item.poster_path}`
+                    : '';
+
+                return `<div class="typeahead-item${i === typeaheadActiveIndex ? ' active' : ''}" data-index="${i}">
+                    ${posterSrc
+                        ? `<img class="typeahead-poster" src="${posterSrc}" alt="" loading="lazy">`
+                        : `<div class="typeahead-poster" style="display:flex;align-items:center;justify-content:center;font-size:1.2rem;">${isTV ? '📺' : '🎬'}</div>`
+                    }
+                    <div class="typeahead-info">
+                        <div class="typeahead-title">${title}</div>
+                        <div class="typeahead-year">${year}</div>
+                    </div>
+                    <span class="typeahead-type-badge${isTV ? ' tv' : ''}">${isTV ? 'TV' : 'Movie'}</span>
+                </div>`;
+            }).join('');
+
+            dropdown.classList.add('visible');
+
+            dropdown.querySelectorAll('.typeahead-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    selectTypeaheadItem(parseInt(el.dataset.index));
+                });
+            });
+        }
+
+        function selectTypeaheadItem(index) {
+            const item = typeaheadResults[index];
+            if (!item) return;
+
+            const searchInput = document.getElementById('searchInput');
+            if (searchInput) searchInput.value = item.title || item.name || '';
+
+            hideTypeahead();
+            requestMedia(item);
+        }
+
+        function hideTypeahead() {
+            const dropdown = document.getElementById('typeaheadDropdown');
+            if (dropdown) {
+                dropdown.classList.remove('visible');
+                dropdown.innerHTML = '';
+            }
+            typeaheadActiveIndex = -1;
+            typeaheadResults = [];
+        }
+
+        function handleTypeaheadKeydown(e) {
+            const dropdown = document.getElementById('typeaheadDropdown');
+            if (!dropdown || !dropdown.classList.contains('visible')) return;
+
+            const itemCount = typeaheadResults.length;
+            if (itemCount === 0) return;
+
+            if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                typeaheadActiveIndex = (typeaheadActiveIndex + 1) % itemCount;
+                updateTypeaheadHighlight();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                typeaheadActiveIndex = (typeaheadActiveIndex - 1 + itemCount) % itemCount;
+                updateTypeaheadHighlight();
+            } else if (e.key === 'Enter') {
+                if (typeaheadActiveIndex >= 0) {
+                    e.preventDefault();
+                    selectTypeaheadItem(typeaheadActiveIndex);
+                } else {
+                    hideTypeahead();
+                }
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                hideTypeahead();
+            }
+        }
+
+        function updateTypeaheadHighlight() {
+            const dropdown = document.getElementById('typeaheadDropdown');
+            if (!dropdown) return;
+            dropdown.querySelectorAll('.typeahead-item').forEach((el, i) => {
+                el.classList.toggle('active', i === typeaheadActiveIndex);
+            });
+            const activeEl = dropdown.querySelector('.typeahead-item.active');
+            if (activeEl) activeEl.scrollIntoView({ block: 'nearest' });
+        }
+
         // ===== SEARCH =====
         async function searchMedia() {
+            hideTypeahead();
             if (!currentUser) { showToast('Please sign in first', 'error'); return; }
             const query = document.getElementById('searchInput').value.trim();
             if (!query) { showToast('Enter a search term', 'error'); return; }
@@ -3211,7 +3414,22 @@
 
             // Search listeners
             const searchInput = document.getElementById('searchInput');
-            if (searchInput) searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchMedia(); });
+            if (searchInput) {
+                searchInput.addEventListener('input', e => {
+                    clearTimeout(typeaheadTimeout);
+                    const query = e.target.value.trim();
+                    if (query.length < 2) { hideTypeahead(); return; }
+                    typeaheadTimeout = setTimeout(() => fetchTypeahead(query), 300);
+                });
+                searchInput.addEventListener('keydown', handleTypeaheadKeydown);
+                searchInput.addEventListener('keypress', e => { if (e.key === 'Enter') searchMedia(); });
+            }
+
+            // Close typeahead on outside click
+            document.addEventListener('click', e => {
+                const searchBar = document.querySelector('.search-bar');
+                if (searchBar && !searchBar.contains(e.target)) hideTypeahead();
+            });
 
             // Email input enter
             const emailInput = document.getElementById('emailInput');
