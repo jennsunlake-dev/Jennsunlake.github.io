@@ -1776,39 +1776,35 @@
             letter-spacing: 0.5px;
             margin: 20px 0 10px;
         }
-        .request-list { display: flex; flex-direction: column; gap: 8px; }
-        .request-row {
+        /* Status overlay on request cards */
+        .req-status-overlay {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 6px 10px;
             display: flex;
             align-items: center;
-            gap: 12px;
-            background: var(--bg-card);
-            border: 1px solid var(--border-subtle);
-            border-radius: 12px;
-            padding: 12px 16px;
-            cursor: pointer;
-            transition: border-color 0.2s;
+            justify-content: space-between;
+            gap: 6px;
+            z-index: 3;
         }
-        .request-row:hover { border-color: var(--accent); }
-        .request-row .rr-poster {
-            width: 40px;
-            height: 60px;
-            border-radius: 6px;
-            object-fit: cover;
-            flex-shrink: 0;
+        .req-status-overlay .status-pill {
+            font-size: 0.6rem;
+            padding: 3px 8px;
         }
-        .request-row .rr-info { flex: 1; min-width: 0; }
-        .request-row .rr-title {
-            font-size: 14px;
-            font-weight: 600;
-            color: var(--text-primary);
-            white-space: nowrap;
+        .req-status-overlay .req-progress {
+            flex: 1;
+            height: 4px;
+            background: rgba(255,255,255,0.15);
+            border-radius: 2px;
             overflow: hidden;
-            text-overflow: ellipsis;
         }
-        .request-row .rr-date {
-            font-size: 11px;
-            color: var(--text-secondary);
-            margin-top: 2px;
+        .req-status-overlay .req-progress-fill {
+            height: 100%;
+            border-radius: 2px;
+            background: #3b82f6;
+            transition: width 0.5s ease;
         }
         .status-pill {
             padding: 4px 10px;
@@ -1826,21 +1822,6 @@
         .status-pill.declined { background: rgba(239,68,68,0.2); color: #ef4444; }
         .status-pill.error, .status-pill.not_available { background: rgba(239,68,68,0.2); color: #ef4444; }
 
-        .request-row .rr-progress-bar {
-            width: 60px;
-            height: 4px;
-            background: rgba(255,255,255,0.1);
-            border-radius: 2px;
-            overflow: hidden;
-            flex-shrink: 0;
-        }
-        .request-row .rr-progress-fill {
-            height: 100%;
-            border-radius: 2px;
-            background: var(--accent);
-            transition: width 0.5s ease;
-        }
-
         .my-requests-empty {
             text-align: center;
             padding: 40px 20px;
@@ -1854,7 +1835,6 @@
             .stat-card { padding: 12px; }
             .stat-value { font-size: 20px; }
             .download-card .dl-poster { width: 36px; height: 54px; }
-            .request-row .rr-poster { width: 32px; height: 48px; }
         }
     </style>
 </head>
@@ -1920,7 +1900,7 @@
             <!-- My Requests View (hidden by default) -->
             <div id="myRequestsView" class="my-requests-view">
                 <div id="statsBanner" class="stats-banner" style="display:none;"></div>
-                <div id="requestsList"></div>
+                <div id="requestsList" class="media-grid"></div>
             </div>
 
             <!-- Movies Section -->
@@ -4007,9 +3987,11 @@
         function renderMyRequestsView() {
             const list = document.getElementById('requestsList');
             if (userRequests.size === 0) {
+                list.className = '';
                 list.innerHTML = '<div class="my-requests-empty"><h3>No requests yet</h3><p>Search for a movie or TV show to get started!</p></div>';
                 return;
             }
+            list.className = 'media-grid';
 
             const inProgress = [];
             const history = [];
@@ -4034,37 +4016,49 @@
 
             let html = '';
             if (inProgress.length > 0) {
-                html += `<div class="request-group-title">In Progress (${inProgress.length})</div>`;
-                html += '<div class="request-list">' + inProgress.map(renderRequestRow).join('') + '</div>';
+                html += `<div class="request-group-title" style="grid-column:1/-1;">In Progress (${inProgress.length})</div>`;
+                inProgress.forEach(req => { html += createRequestCardHTML(req); });
             }
             if (history.length > 0) {
-                html += `<div class="request-group-title">History (${history.length})</div>`;
-                html += '<div class="request-list">' + history.map(renderRequestRow).join('') + '</div>';
+                html += `<div class="request-group-title" style="grid-column:1/-1;">History (${history.length})</div>`;
+                history.forEach(req => { html += createRequestCardHTML(req); });
             }
             list.innerHTML = html;
+
+            // Attach click handlers
+            list.querySelectorAll('.media-card[data-media-id]').forEach(card => {
+                card.addEventListener('click', () => onRequestRowClick(card.dataset.mediaId));
+            });
         }
 
-        function renderRequestRow(req) {
-            const poster = req.posterPath
-                ? `https://image.tmdb.org/t/p/w92${req.posterPath}`
-                : '';
+        function createRequestCardHTML(req) {
             const title = req.title || req.name || 'Unknown';
-            const date = req.requestedAt?.seconds
-                ? new Date(req.requestedAt.seconds * 1000).toLocaleDateString()
-                : '';
+            const posterUrl = req.posterPath
+                ? `https://image.tmdb.org/t/p/w500${req.posterPath}`
+                : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg width="300" height="450" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="450" fill="#181818"/><text x="150" y="225" font-family="Arial" font-size="14" fill="#E50914" text-anchor="middle">${title.substring(0,25)}</text></svg>`)}`;
             const status = req.status || 'pending';
             const statusLabel = status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
             const progress = req.progress || 0;
             const showProgress = status === 'downloading';
+            const mediaType = req.mediaType || req.mediaId?.split('-')[0] || 'movie';
+            const rawYear = req.releaseDate || req.firstAirDate || '';
+            const year = rawYear ? new Date(rawYear).getFullYear() : '';
 
-            return `<div class="request-row" onclick="onRequestRowClick('${req.mediaId}')">
-                ${poster ? `<img class="rr-poster" src="${poster}" alt="">` : '<div class="rr-poster" style="background:var(--bg-surface);border-radius:6px;"></div>'}
-                <div class="rr-info">
-                    <div class="rr-title">${title}</div>
-                    <div class="rr-date">${date}</div>
+            return `<div class="media-card" data-media-id="${req.mediaId}" style="cursor:pointer;">
+                <div class="poster-wrap">
+                    <img src="${posterUrl}" alt="${title}" class="media-poster" loading="lazy">
+                    <div class="req-status-overlay">
+                        <span class="status-pill ${status}">${statusLabel}</span>
+                        ${showProgress ? `<div class="req-progress"><div class="req-progress-fill" style="width:${Math.round(progress * 100)}%"></div></div>` : ''}
+                    </div>
+                    <div class="poster-overlay">
+                        <span class="type-badge ${mediaType === 'tv' ? 'tv' : ''}">${mediaType === 'tv' ? 'TV' : 'Movie'}</span>
+                    </div>
                 </div>
-                ${showProgress ? `<div class="rr-progress-bar"><div class="rr-progress-fill" style="width:${Math.round(progress * 100)}%"></div></div>` : ''}
-                <span class="status-pill ${status}">${statusLabel}</span>
+                <div class="card-body">
+                    <div class="card-title">${title}</div>
+                    <div class="card-year">${year || ''}</div>
+                </div>
             </div>`;
         }
 
@@ -4110,7 +4104,7 @@
                 </div>
                 <div class="stat-card">
                     <div class="stat-value">${data.contributionPercent}%</div>
-                    <div class="stat-label">Of All Plex Content</div>
+                    <div class="stat-label">Of ${data.plexTotalItems?.toLocaleString() || '—'} Plex Items</div>
                 </div>
             `;
         }
