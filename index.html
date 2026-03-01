@@ -1776,6 +1776,14 @@
             letter-spacing: 0.5px;
             margin: 20px 0 10px;
         }
+        /* Type badge (Movie/TV) pinned to top-left on request cards */
+        .req-type-badge {
+            position: absolute;
+            top: 8px;
+            left: 8px;
+            z-index: 2;
+        }
+
         /* Status overlay on request cards */
         .req-status-overlay {
             position: absolute;
@@ -4025,6 +4033,23 @@
             }
             list.innerHTML = html;
 
+            // Lazy-fetch posters from TMDB for requests that have no stored poster
+            list.querySelectorAll('img[data-needs-poster="true"]').forEach(async (img) => {
+                const card = img.closest('.media-card');
+                const tmdbId = card?.dataset.tmdbId;
+                const mediaType = card?.dataset.mediaType;
+                if (!tmdbId || !mediaType) return;
+                try {
+                    const res = await fetch(`${PROXY_BASE}/${mediaType}/${tmdbId}`);
+                    if (!res.ok) return;
+                    const data = await res.json();
+                    if (data.poster_path) {
+                        img.src = `https://image.tmdb.org/t/p/w500${data.poster_path}`;
+                        img.removeAttribute('data-needs-poster');
+                    }
+                } catch (e) { /* ignore */ }
+            });
+
             // Attach click handlers
             list.querySelectorAll('.media-card[data-media-id]').forEach(card => {
                 card.addEventListener('click', () => onRequestRowClick(card.dataset.mediaId));
@@ -4033,26 +4058,25 @@
 
         function createRequestCardHTML(req) {
             const title = req.title || req.name || 'Unknown';
-            const posterUrl = req.posterPath
-                ? `https://image.tmdb.org/t/p/w500${req.posterPath}`
+            const poster = req.posterPath || req.poster_path;
+            const posterUrl = poster
+                ? `https://image.tmdb.org/t/p/w500${poster}`
                 : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg width="300" height="450" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="450" fill="#181818"/><text x="150" y="225" font-family="Arial" font-size="14" fill="#E50914" text-anchor="middle">${title.substring(0,25)}</text></svg>`)}`;
             const status = req.status || 'pending';
             const statusLabel = status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
             const progress = req.progress || 0;
             const showProgress = status === 'downloading';
             const mediaType = req.mediaType || req.mediaId?.split('-')[0] || 'movie';
-            const rawYear = req.releaseDate || req.firstAirDate || '';
-            const year = rawYear ? new Date(rawYear).getFullYear() : '';
+            const year = req.year || '';
+            const tmdbId = req.tmdbId || '';
 
-            return `<div class="media-card" data-media-id="${req.mediaId}" style="cursor:pointer;">
+            return `<div class="media-card" data-media-id="${req.mediaId}" data-tmdb-id="${tmdbId}" data-media-type="${mediaType}" style="cursor:pointer;">
                 <div class="poster-wrap">
-                    <img src="${posterUrl}" alt="${title}" class="media-poster" loading="lazy">
+                    <img src="${posterUrl}" alt="${title}" class="media-poster" loading="lazy"${!poster ? ` data-needs-poster="true"` : ''}>
+                    <span class="type-badge req-type-badge ${mediaType === 'tv' ? 'tv' : ''}">${mediaType === 'tv' ? 'TV' : 'Movie'}</span>
                     <div class="req-status-overlay">
                         <span class="status-pill ${status}">${statusLabel}</span>
                         ${showProgress ? `<div class="req-progress"><div class="req-progress-fill" style="width:${Math.round(progress * 100)}%"></div></div>` : ''}
-                    </div>
-                    <div class="poster-overlay">
-                        <span class="type-badge ${mediaType === 'tv' ? 'tv' : ''}">${mediaType === 'tv' ? 'TV' : 'Movie'}</span>
                     </div>
                 </div>
                 <div class="card-body">
