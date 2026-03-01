@@ -120,6 +120,14 @@
                 if (!response.ok) throw new Error('Failed to fetch user data');
                 return await response.json();
             }
+            async getUserStats(userId) {
+                const response = await fetch(`${this.baseUrl}/api/user/${userId}/stats`, {
+                    headers: this._authHeaders()
+                });
+                if (this._handleAuthError(response)) return;
+                if (!response.ok) throw new Error('Failed to fetch user stats');
+                return await response.json();
+            }
             listenForUpdates(userId, callback) {
                 const tokenParam = this.userToken ? `?token=${this.userToken}` : '';
                 const eventSource = new EventSource(`${this.baseUrl}/api/requests/${userId}/listen${tokenParam}`);
@@ -1624,6 +1632,230 @@
         .legend-dot.approved { background: #34d399; }
         .legend-dot.added { background: #fbbf24; }
         .legend-dot.error { background: var(--error); }
+
+        /* ===== VIEW TABS ===== */
+        .view-tabs {
+            display: none;
+            gap: 4px;
+            margin-bottom: 20px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 4px;
+            border: 1px solid var(--border-subtle);
+        }
+        .view-tabs.visible { display: flex; }
+        .view-tab {
+            flex: 1;
+            padding: 10px 16px;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: 'Inter', sans-serif;
+            font-size: 14px;
+            font-weight: 500;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .view-tab:hover { color: var(--text-primary); background: rgba(255,255,255,0.05); }
+        .view-tab.active {
+            background: var(--accent);
+            color: #fff;
+            font-weight: 600;
+        }
+
+        /* ===== ACTIVE DOWNLOADS ===== */
+        .active-downloads { margin-bottom: 24px; }
+        .active-downloads-title {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .active-downloads-title .count-badge {
+            background: var(--accent);
+            color: #fff;
+            font-size: 11px;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-weight: 700;
+        }
+        .download-cards { display: flex; flex-direction: column; gap: 10px; }
+        .download-card {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: border-color 0.2s, transform 0.15s;
+        }
+        .download-card:hover { border-color: var(--accent); transform: translateY(-1px); }
+        .download-card .dl-poster {
+            width: 44px;
+            height: 66px;
+            border-radius: 6px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .download-card .dl-info { flex: 1; min-width: 0; }
+        .download-card .dl-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .download-card .dl-meta {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .download-card .dl-progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            margin-top: 8px;
+            overflow: hidden;
+        }
+        .download-card .dl-progress-fill {
+            height: 100%;
+            border-radius: 3px;
+            background: var(--accent);
+            transition: width 0.5s ease;
+        }
+        .download-card .dl-progress-fill.complete { background: #34d399; }
+        .download-card .dl-status-icon {
+            font-size: 20px;
+            flex-shrink: 0;
+        }
+
+        /* ===== MY REQUESTS VIEW ===== */
+        .my-requests-view { display: none; }
+        .my-requests-view.visible { display: block; }
+
+        /* Stats Banner */
+        .stats-banner {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 24px;
+        }
+        .stat-card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 16px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: var(--accent);
+            line-height: 1.2;
+        }
+        .stat-label {
+            font-size: 12px;
+            color: var(--text-secondary);
+            margin-top: 4px;
+        }
+
+        /* Request Groups */
+        .request-group-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin: 20px 0 10px;
+        }
+        .request-list { display: flex; flex-direction: column; gap: 8px; }
+        .request-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-subtle);
+            border-radius: 12px;
+            padding: 12px 16px;
+            cursor: pointer;
+            transition: border-color 0.2s;
+        }
+        .request-row:hover { border-color: var(--accent); }
+        .request-row .rr-poster {
+            width: 40px;
+            height: 60px;
+            border-radius: 6px;
+            object-fit: cover;
+            flex-shrink: 0;
+        }
+        .request-row .rr-info { flex: 1; min-width: 0; }
+        .request-row .rr-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: var(--text-primary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .request-row .rr-date {
+            font-size: 11px;
+            color: var(--text-secondary);
+            margin-top: 2px;
+        }
+        .status-pill {
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+        .status-pill.pending { background: rgba(156,163,175,0.2); color: #9ca3af; }
+        .status-pill.approved { background: rgba(52,211,153,0.2); color: #34d399; }
+        .status-pill.downloading { background: rgba(59,130,246,0.2); color: #3b82f6; }
+        .status-pill.processing { background: rgba(251,191,36,0.2); color: #fbbf24; }
+        .status-pill.completed, .status-pill.available { background: rgba(52,211,153,0.2); color: #34d399; }
+        .status-pill.declined { background: rgba(239,68,68,0.2); color: #ef4444; }
+        .status-pill.error, .status-pill.not_available { background: rgba(239,68,68,0.2); color: #ef4444; }
+
+        .request-row .rr-progress-bar {
+            width: 60px;
+            height: 4px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+            overflow: hidden;
+            flex-shrink: 0;
+        }
+        .request-row .rr-progress-fill {
+            height: 100%;
+            border-radius: 2px;
+            background: var(--accent);
+            transition: width 0.5s ease;
+        }
+
+        .my-requests-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+        .my-requests-empty h3 { color: var(--text-primary); margin-bottom: 8px; }
+
+        /* Mobile responsive */
+        @media (max-width: 600px) {
+            .stats-banner { grid-template-columns: 1fr; gap: 8px; }
+            .stat-card { padding: 12px; }
+            .stat-value { font-size: 20px; }
+            .download-card .dl-poster { width: 36px; height: 54px; }
+            .request-row .rr-poster { width: 32px; height: 48px; }
+        }
     </style>
 </head>
 <body>
@@ -1671,6 +1903,26 @@
 
         <!-- Main Content -->
         <div id="mainContent" style="display:none;">
+            <!-- View Tabs -->
+            <div class="view-tabs" id="viewTabs">
+                <button class="view-tab active" data-view="home" onclick="switchView('home')">Home</button>
+                <button class="view-tab" data-view="my-requests" onclick="switchView('my-requests')">My Requests</button>
+            </div>
+
+            <!-- Active Downloads (shown on home, hidden when empty) -->
+            <div id="activeDownloadsSection" class="active-downloads" style="display:none;">
+                <div class="active-downloads-title">
+                    Active Downloads <span class="count-badge" id="activeDownloadsCount">0</span>
+                </div>
+                <div class="download-cards" id="downloadCards"></div>
+            </div>
+
+            <!-- My Requests View (hidden by default) -->
+            <div id="myRequestsView" class="my-requests-view">
+                <div id="statsBanner" class="stats-banner" style="display:none;"></div>
+                <div id="requestsList"></div>
+            </div>
+
             <!-- Movies Section -->
             <div class="section" id="moviesSection">
                 <div class="section-head">
@@ -2237,6 +2489,10 @@
             searchSection.classList.remove('locked');
             document.getElementById('mainContent').style.display = 'block';
 
+            // Show view tabs
+            const viewTabs = document.getElementById('viewTabs');
+            if (viewTabs) viewTabs.classList.add('visible');
+
             // Update nav with user info
             updateNavUser();
             loadUserData();
@@ -2495,8 +2751,9 @@
             document.querySelectorAll('.filter-pill').forEach(btn => {
                 btn.classList.toggle('active', btn.dataset.type === type);
             });
-            // If we're viewing search results, stay there. Otherwise show/hide sections.
+            // If we're viewing search results or my-requests, stay there. Otherwise show/hide sections.
             if (document.getElementById('searchResults').style.display === 'block') return;
+            if (currentView === 'my-requests') return;
             document.getElementById('moviesSection').style.display = (type === 'multi' || type === 'movie') ? 'block' : 'none';
             document.getElementById('tvSection').style.display = (type === 'multi' || type === 'tv') ? 'block' : 'none';
         }
@@ -2505,6 +2762,7 @@
             document.getElementById('searchInput').value = '';
             document.getElementById('searchResults').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
+            switchView(currentView); // Restore correct tab view
             if (history.state?.view === 'search') {
                 history.pushState({ view: 'home' }, '', window.location.pathname);
             }
@@ -2515,6 +2773,7 @@
             document.getElementById('searchInput').value = '';
             document.getElementById('searchResults').style.display = 'none';
             document.getElementById('mainContent').style.display = 'block';
+            if (currentView !== 'home') switchView('home');
             if (history.state?.view === 'search') {
                 history.pushState({ view: 'home' }, '', window.location.pathname);
             }
@@ -3213,6 +3472,7 @@
                 });
                 setTimeout(() => {
                     for (const [mediaId] of userRequests) updateMediaCardDisplay(mediaId);
+                    renderActiveDownloads();
                 }, 1000);
             } catch (e) { console.error('Error loading requests:', e); }
         }
@@ -3234,6 +3494,8 @@
                         } else { userRequests.set(mediaId, data); }
                     } else { userRequests.set(mediaId, data); }
                     updateMediaCardDisplay(mediaId);
+                    renderActiveDownloads();
+                    if (currentView === 'my-requests') renderMyRequestsView();
                 });
             } catch (e) { console.error('SSE error:', e); }
         }
@@ -3624,6 +3886,233 @@
                     panel.style.opacity = '1';
                 });
             }
+        }
+
+        // ===== VIEW TABS & MY REQUESTS =====
+        let currentView = 'home';
+        let cachedUserStats = null;
+
+        function switchView(view) {
+            currentView = view;
+            const tabs = document.querySelectorAll('.view-tab');
+            tabs.forEach(t => t.classList.toggle('active', t.dataset.view === view));
+
+            const homeElements = ['moviesSection', 'tvSection'];
+            const myReqView = document.getElementById('myRequestsView');
+            const activeDl = document.getElementById('activeDownloadsSection');
+
+            if (view === 'home') {
+                homeElements.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'block';
+                });
+                myReqView.classList.remove('visible');
+                renderActiveDownloads();
+            } else {
+                homeElements.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'none';
+                });
+                if (activeDl) activeDl.style.display = 'none';
+                myReqView.classList.add('visible');
+                renderMyRequestsView();
+                if (!cachedUserStats) loadUserStats();
+            }
+        }
+
+        function getActiveAndRecentDownloads() {
+            const now = Date.now();
+            const dayMs = 24 * 60 * 60 * 1000;
+            const active = [];
+            const recent = [];
+
+            for (const [mediaId, req] of userRequests) {
+                const status = req.status;
+                if (['downloading', 'processing', 'approved', 'pending'].includes(status)) {
+                    active.push({ mediaId, ...req });
+                } else if (['completed', 'available'].includes(status)) {
+                    const completedAt = req.completedAt;
+                    let completedTime = 0;
+                    if (completedAt) {
+                        completedTime = completedAt.seconds ? completedAt.seconds * 1000 : new Date(completedAt).getTime();
+                    }
+                    if (completedTime && (now - completedTime) < dayMs) {
+                        recent.push({ mediaId, ...req });
+                    }
+                }
+            }
+            return { active, recent };
+        }
+
+        function renderActiveDownloads() {
+            if (currentView !== 'home') return;
+            const section = document.getElementById('activeDownloadsSection');
+            const container = document.getElementById('downloadCards');
+            const badge = document.getElementById('activeDownloadsCount');
+            const { active, recent } = getActiveAndRecentDownloads();
+            const all = [...active, ...recent];
+
+            if (all.length === 0) {
+                section.style.display = 'none';
+                return;
+            }
+
+            section.style.display = 'block';
+            badge.textContent = active.length || '';
+            badge.style.display = active.length > 0 ? 'inline' : 'none';
+
+            container.innerHTML = all.map(req => {
+                const poster = req.posterPath
+                    ? `https://image.tmdb.org/t/p/w92${req.posterPath}`
+                    : '';
+                const title = req.title || req.name || 'Unknown';
+                const progress = req.progress || 0;
+                const pct = Math.round(progress * 100);
+                const isComplete = ['completed', 'available'].includes(req.status);
+                const speed = req.downloadSpeedFormatted || '';
+                const eta = req.etaFormatted || '';
+                const size = req.downloadSize || '';
+
+                let metaParts = [];
+                if (req.mediaType === 'tv' && req.selectedEpisodes) {
+                    const seasons = Object.keys(req.selectedEpisodes);
+                    metaParts.push(seasons.length === 1 ? `Season ${seasons[0]}` : `${seasons.length} seasons`);
+                } else {
+                    metaParts.push(req.mediaType === 'tv' ? 'TV Show' : 'Movie');
+                }
+                if (isComplete) {
+                    metaParts.push(size || 'Complete');
+                } else if (req.status === 'downloading') {
+                    if (speed) metaParts.push(speed);
+                    if (eta && eta !== 'Complete') metaParts.push(eta);
+                    if (size) metaParts.push(size);
+                } else {
+                    metaParts.push(req.statusMessage || req.status);
+                }
+
+                const icon = isComplete ? '&#10003;' : (req.status === 'downloading' ? '&#8595;' : '&#8987;');
+
+                return `<div class="download-card" onclick="onRequestRowClick('${req.mediaId}')">
+                    ${poster ? `<img class="dl-poster" src="${poster}" alt="">` : '<div class="dl-poster" style="background:var(--bg-surface);"></div>'}
+                    <div class="dl-info">
+                        <div class="dl-title">${title}</div>
+                        <div class="dl-meta">${metaParts.join(' &middot; ')}</div>
+                        ${req.status === 'downloading' || isComplete ? `<div class="dl-progress-bar"><div class="dl-progress-fill${isComplete ? ' complete' : ''}" style="width:${isComplete ? 100 : pct}%"></div></div>` : ''}
+                    </div>
+                    <div class="dl-status-icon">${icon}</div>
+                </div>`;
+            }).join('');
+        }
+
+        function renderMyRequestsView() {
+            const list = document.getElementById('requestsList');
+            if (userRequests.size === 0) {
+                list.innerHTML = '<div class="my-requests-empty"><h3>No requests yet</h3><p>Search for a movie or TV show to get started!</p></div>';
+                return;
+            }
+
+            const inProgress = [];
+            const history = [];
+
+            for (const [mediaId, req] of userRequests) {
+                const item = { mediaId, ...req };
+                if (['downloading', 'processing', 'approved', 'pending'].includes(req.status)) {
+                    inProgress.push(item);
+                } else {
+                    history.push(item);
+                }
+            }
+
+            // Sort: most recent first
+            const sortByDate = (a, b) => {
+                const ta = a.requestedAt?.seconds || a.lastUpdated?.seconds || 0;
+                const tb = b.requestedAt?.seconds || b.lastUpdated?.seconds || 0;
+                return tb - ta;
+            };
+            inProgress.sort(sortByDate);
+            history.sort(sortByDate);
+
+            let html = '';
+            if (inProgress.length > 0) {
+                html += `<div class="request-group-title">In Progress (${inProgress.length})</div>`;
+                html += '<div class="request-list">' + inProgress.map(renderRequestRow).join('') + '</div>';
+            }
+            if (history.length > 0) {
+                html += `<div class="request-group-title">History (${history.length})</div>`;
+                html += '<div class="request-list">' + history.map(renderRequestRow).join('') + '</div>';
+            }
+            list.innerHTML = html;
+        }
+
+        function renderRequestRow(req) {
+            const poster = req.posterPath
+                ? `https://image.tmdb.org/t/p/w92${req.posterPath}`
+                : '';
+            const title = req.title || req.name || 'Unknown';
+            const date = req.requestedAt?.seconds
+                ? new Date(req.requestedAt.seconds * 1000).toLocaleDateString()
+                : '';
+            const status = req.status || 'pending';
+            const statusLabel = status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            const progress = req.progress || 0;
+            const showProgress = status === 'downloading';
+
+            return `<div class="request-row" onclick="onRequestRowClick('${req.mediaId}')">
+                ${poster ? `<img class="rr-poster" src="${poster}" alt="">` : '<div class="rr-poster" style="background:var(--bg-surface);border-radius:6px;"></div>'}
+                <div class="rr-info">
+                    <div class="rr-title">${title}</div>
+                    <div class="rr-date">${date}</div>
+                </div>
+                ${showProgress ? `<div class="rr-progress-bar"><div class="rr-progress-fill" style="width:${Math.round(progress * 100)}%"></div></div>` : ''}
+                <span class="status-pill ${status}">${statusLabel}</span>
+            </div>`;
+        }
+
+        async function onRequestRowClick(mediaId) {
+            const req = userRequests.get(mediaId);
+            if (!req) return;
+            const tmdbId = req.tmdbId || mediaId.split('-').slice(1).join('-');
+            const mediaType = req.mediaType || mediaId.split('-')[0];
+            try {
+                const res = await fetch(`${PROXY_BASE}/${mediaType}/${tmdbId}`);
+                if (!res.ok) return;
+                const item = await res.json();
+                item.media_type = mediaType;
+                showMediaDetail(item);
+            } catch (e) {
+                console.error('Error opening detail:', e);
+            }
+        }
+
+        async function loadUserStats() {
+            if (!currentUser) return;
+            try {
+                const stats = await window.apiClient.getUserStats(currentUser.id);
+                cachedUserStats = stats;
+                renderStatsBanner(stats);
+            } catch (e) {
+                console.error('Error loading user stats:', e);
+            }
+        }
+
+        function renderStatsBanner(data) {
+            const banner = document.getElementById('statsBanner');
+            if (!data) return;
+            banner.style.display = 'grid';
+            banner.innerHTML = `
+                <div class="stat-card">
+                    <div class="stat-value">${data.userCompletedCount}</div>
+                    <div class="stat-label">Completed Requests</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${data.userTotalGB} GB</div>
+                    <div class="stat-label">Downloaded</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-value">${data.contributionPercent}%</div>
+                    <div class="stat-label">Of All Plex Content</div>
+                </div>
+            `;
         }
 
         async function submitFeedback() {
