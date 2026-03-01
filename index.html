@@ -2038,7 +2038,7 @@
                 <button class="req-btn ${btnClass}" id="detailReqBtn" ${btnDisabled ? 'disabled' : ''}>${btnText}</button>
             `;
             const detailBtn = document.getElementById('detailReqBtn');
-            if (detailBtn && !btnDisabled) {
+            if (detailBtn) {
                 detailBtn.addEventListener('click', () => {
                     closeDetailModal();
                     requestMedia(item);
@@ -2825,7 +2825,7 @@
             `;
 
             const btn = card.querySelector(`#btn-${mediaId}`);
-            if (btn && !btnDisabled) {
+            if (btn) {
                 btn.addEventListener('click', (e) => { e.stopPropagation(); requestMedia(item); });
             }
 
