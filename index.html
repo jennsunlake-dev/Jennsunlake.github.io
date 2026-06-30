@@ -102,6 +102,28 @@
                 }
                 return await response.json();
             }
+            async getSubscriptions(userId) {
+                const response = await fetch(`${this.baseUrl}/api/subscriptions/${userId}`, { headers: this._authHeaders() });
+                if (this._handleAuthError(response)) return;
+                if (!response.ok) throw new Error('Failed to fetch subscriptions');
+                return await response.json();
+            }
+            async createSubscription(data) {
+                const response = await fetch(`${this.baseUrl}/api/subscriptions`, {
+                    method: 'POST', headers: this._authHeaders(), body: JSON.stringify(data)
+                });
+                if (this._handleAuthError(response)) return;
+                if (!response.ok) { const d = await response.json().catch(() => ({})); throw new Error(d.error || 'Failed to subscribe'); }
+                return await response.json();
+            }
+            async cancelSubscription(id) {
+                const response = await fetch(`${this.baseUrl}/api/subscriptions/${id}`, {
+                    method: 'DELETE', headers: this._authHeaders()
+                });
+                if (this._handleAuthError(response)) return;
+                if (!response.ok) { const d = await response.json().catch(() => ({})); throw new Error(d.error || 'Failed to cancel'); }
+                return await response.json();
+            }
             async getGlobalStatuses() {
                 const response = await fetch(`${this.baseUrl}/api/global-statuses`);
                 if (!response.ok) throw new Error('Failed to fetch global statuses');
@@ -2097,8 +2119,17 @@
         const USER_TIERS = {
             'STANDARD': { name: 'Standard', requests: 5 },
             'PRO': { name: 'Pro', requests: 20 },
-            'VIP': { name: 'VIP', requests: -1 }
+            'VIP': { name: 'VIP', requests: -1 },
+            'ADMIN': { name: 'Admin', requests: -1 }
         };
+
+        // VIP/ADMIN (or an explicit -1 limit) have no weekly cap.
+        function hasUnlimitedRequests() {
+            return weeklyLimit === -1 || userTier === 'VIP' || userTier === 'ADMIN';
+        }
+
+        // Subscriptions the current user has (tmdbId -> subscription doc)
+        let userSubscriptions = new Map();
 
         // Welcome webhook handled server-side via /api/webhook/welcome
 
@@ -2485,6 +2516,7 @@
             updateNavUser();
             loadUserData();
             loadUserRequests();
+            loadUserSubscriptions();
             listenForRequestUpdates();
 
             // Welcome popup (only auto-show once), then What's New after
@@ -2531,33 +2563,34 @@
         }
 
         async function loadUserData() {
-            try {
-                if (!window.db || !currentUser) {
-                    userTier = 'VIP';
-                    weeklyLimit = -1;
-                    userRequestCount = 0;
-                    updateNavUser();
-                    return;
-                }
-                const userDocRef = window.doc(window.db, `artifacts/${APP_ID}/public/data/users`, currentUser.id);
-                const userDoc = await window.getDoc(userDocRef);
-                if (userDoc.exists()) {
-                    const data = userDoc.data();
-                    userTier = data.tier || currentUser.tier || 'VIP';
-                    userRequestCount = data.requestCount || 0;
-                    weeklyLimit = data.weeklyLimit || USER_TIERS[userTier]?.requests || -1;
-                } else {
-                    userTier = currentUser.tier || 'VIP';
-                    weeklyLimit = USER_TIERS[userTier]?.requests || -1;
-                    userRequestCount = 0;
-                }
-                updateNavUser();
-            } catch (e) {
-                userTier = currentUser?.tier || 'VIP';
-                weeklyLimit = USER_TIERS[userTier]?.requests || -1;
-                userRequestCount = 0;
-                updateNavUser();
+            // The backend (/api/check-user-access) is the source of truth for a
+            // user's tier and weekly limit. The client-side Firestore doc here uses
+            // a different APP_ID/doc-id than the bot writes, so it never matches —
+            // trusting it caused STANDARD users to show unlimited. Use the signed-in
+            // values instead and never default a real tier to "unlimited".
+            const tierKey = (currentUser?.tier || 'STANDARD').toUpperCase();
+            userTier = tierKey;
+
+            if (tierKey === 'VIP' || tierKey === 'ADMIN') {
+                weeklyLimit = -1; // no cap
+            } else if (typeof currentUser?.weeklyLimit === 'number' && currentUser.weeklyLimit > 0) {
+                weeklyLimit = currentUser.weeklyLimit;
+            } else {
+                weeklyLimit = USER_TIERS[tierKey]?.requests ?? 5; // safe default
             }
+
+            userRequestCount = 0;
+            try {
+                if (window.db && currentUser) {
+                    const userDocRef = window.doc(window.db, `artifacts/${APP_ID}/public/data/users`, currentUser.id);
+                    const userDoc = await window.getDoc(userDocRef);
+                    if (userDoc.exists() && typeof userDoc.data().requestCount === 'number') {
+                        userRequestCount = userDoc.data().requestCount;
+                    }
+                }
+            } catch (e) { /* keep userRequestCount at 0 */ }
+
+            updateNavUser();
         }
 
         // ===== TYPE-AHEAD SEARCH =====
@@ -3006,7 +3039,7 @@
             }
 
             // Weekly limit
-            if (!userRequest && !btnDisabled && userTier !== 'VIP' && userRequestCount >= weeklyLimit) {
+            if (!userRequest && !btnDisabled && !hasUnlimitedRequests() && userRequestCount >= weeklyLimit) {
                 btnDisabled = true;
                 btnText = 'Weekly Limit Reached';
                 btnClass = 'pending';
@@ -3089,7 +3122,7 @@
         // ===== REQUEST FLOW =====
         async function requestMedia(media) {
             if (!currentUser) { showToast('Please sign in first', 'error'); return; }
-            if (userTier !== 'VIP' && userRequestCount >= weeklyLimit) {
+            if (!hasUnlimitedRequests() && userRequestCount >= weeklyLimit) {
                 showToast(`Weekly limit of ${weeklyLimit} requests reached`, 'error');
                 return;
             }
@@ -3182,7 +3215,7 @@
                     return;
                 }
 
-                if (userTier !== 'VIP') { userRequestCount++; updateNavUser(); }
+                if (!hasUnlimitedRequests()) { userRequestCount++; updateNavUser(); }
                 showToast(`Request submitted for ${requestData.title}!`);
                 loadGlobalStatuses();
                 selectedMedia = null;
@@ -3219,7 +3252,7 @@
                 if (card?.dataset.availableEpisodes) try { globallyAvailableEpisodes = JSON.parse(card.dataset.availableEpisodes); } catch (e) {}
                 if (card?.dataset.plexEpisodes) try { plexAvailableEpisodes = JSON.parse(card.dataset.plexEpisodes); } catch (e) {}
 
-                let html = `<div class="episode-legend">
+                let html = (selectedMedia ? subBarHtml(selectedMedia) : '') + `<div class="episode-legend">
                     <div class="legend-item"><div class="legend-dot default"></div> Available</div>
                     <div class="legend-item"><div class="legend-dot selected"></div> Selected</div>
                     <div class="legend-item"><div class="legend-dot available"></div> On Plex</div>
@@ -3411,6 +3444,90 @@
             }
             document.getElementById('seasonModal').classList.remove('active');
             try { await submitRequest(); } catch (e) { showToast('Error: ' + e.message, 'error'); }
+        }
+
+        // ===== AUTO-DOWNLOAD SUBSCRIPTIONS =====
+        async function loadUserSubscriptions() {
+            if (!currentUser) return;
+            try {
+                const res = await window.apiClient.getSubscriptions(currentUser.id);
+                userSubscriptions = new Map((res?.subscriptions || []).filter(s => s.active).map(s => [s.tmdbId, s]));
+            } catch (e) { /* non-fatal */ }
+        }
+
+        // Renders the "auto-download new episodes" bar for the season modal (inline
+        // styles so it needs no CSS changes). `media` is the selected TV show.
+        function subBarHtml(media) {
+            const sub = userSubscriptions.get(media.id);
+            const subscribed = !!sub;
+            const wrap = (inner, extra = '') =>
+                `<div id="subBar" style="border:1px solid var(--border,rgba(255,255,255,.12));border-radius:12px;padding:12px 14px;margin-bottom:14px;background:${subscribed ? 'rgba(26,188,156,.10)' : 'var(--bg-card,rgba(255,255,255,.04))'};${extra}">${inner}</div>`;
+            const titleRow = `<div style="font-weight:700;font-size:.95rem;display:flex;align-items:center;gap:6px;">📅 Auto-download new episodes</div>`;
+
+            if (subscribed) {
+                return wrap(`
+                    ${titleRow}
+                    <div style="color:var(--text-secondary,#aaa);font-size:.82rem;margin:4px 0 10px;">
+                        ✓ Active — new episodes are grabbed automatically (${(sub.quality || '1080p')}${sub.releaseDay ? ', ~' + sub.releaseDay.charAt(0).toUpperCase() + sub.releaseDay.slice(1) + 's' : ''}). You won't need to request them.
+                    </div>
+                    <button id="subBtn" onclick="toggleShowSubscription()" style="background:transparent;border:1px solid var(--border,rgba(255,255,255,.25));color:var(--text-primary,#fff);padding:7px 14px;border-radius:8px;cursor:pointer;font-size:.85rem;">Cancel auto-download</button>
+                `);
+            }
+
+            const days = ['', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday'];
+            const dayOpts = days.map(d => `<option value="${d}">${d ? d.charAt(0).toUpperCase() + d.slice(1) : 'Release day (optional)'}</option>`).join('');
+            const qualOpts = ['1080p', '2160p', '720p'].map(q => `<option value="${q}">${q === '2160p' ? '4K (2160p)' : q}</option>`).join('');
+            const selStyle = 'background:var(--bg-card,#1a1a1a);color:var(--text-primary,#fff);border:1px solid var(--border,rgba(255,255,255,.2));border-radius:8px;padding:7px 10px;font-size:.85rem;';
+            return wrap(`
+                ${titleRow}
+                <div style="color:var(--text-secondary,#aaa);font-size:.82rem;margin:4px 0 10px;">
+                    Subscribe and we'll automatically download each new episode as it releases — no need to come back and request them.
+                </div>
+                <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                    <select id="subQuality" style="${selStyle}">${qualOpts}</select>
+                    <select id="subDay" style="${selStyle}">${dayOpts}</select>
+                    <button id="subBtn" onclick="toggleShowSubscription()" style="background:var(--accent,#1abc9c);border:none;color:#fff;padding:8px 16px;border-radius:8px;cursor:pointer;font-weight:600;font-size:.85rem;">Subscribe</button>
+                </div>
+            `);
+        }
+
+        async function toggleShowSubscription() {
+            if (!currentUser || !selectedMedia) return;
+            const media = selectedMedia;
+            const existing = userSubscriptions.get(media.id);
+            const btn = document.getElementById('subBtn');
+            if (btn) { btn.disabled = true; btn.style.opacity = '0.6'; }
+            try {
+                if (existing) {
+                    await window.apiClient.cancelSubscription(existing.id);
+                    userSubscriptions.delete(media.id);
+                    showToast('Auto-download cancelled for ' + (media.title || media.name));
+                } else {
+                    const quality = document.getElementById('subQuality')?.value || '1080p';
+                    const releaseDay = document.getElementById('subDay')?.value || null;
+                    const year = media.first_air_date ? new Date(media.first_air_date).getFullYear() : null;
+                    const seasonNums = (tvShowDetails?.seasons || []).filter(s => s.season_number > 0).map(s => s.season_number);
+                    const currentSeason = seasonNums.length ? Math.max(...seasonNums) : null;
+                    const res = await window.apiClient.createSubscription({
+                        tmdbId: media.id,
+                        title: media.title || media.name,
+                        posterPath: media.poster_path,
+                        year, currentSeason, quality, releaseDay,
+                        seasons: 'current',
+                        userName: currentUser.name,
+                        userEmail: currentUser.email,
+                        userId: currentUser.id
+                    });
+                    userSubscriptions.set(media.id, { id: res.id, tmdbId: media.id, title: media.title || media.name, quality, releaseDay, active: true });
+                    showToast('✓ Subscribed — new episodes will auto-download');
+                }
+                const bar = document.getElementById('subBar');
+                if (bar) bar.outerHTML = subBarHtml(media);
+            } catch (e) {
+                showToast('Subscription error: ' + e.message, 'error');
+                const b = document.getElementById('subBtn');
+                if (b) { b.disabled = false; b.style.opacity = '1'; }
+            }
         }
 
         // ===== USER REQUESTS =====
