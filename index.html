@@ -124,6 +124,12 @@
                 if (!response.ok) { const d = await response.json().catch(() => ({})); throw new Error(d.error || 'Failed to cancel'); }
                 return await response.json();
             }
+            async getUpcomingSubscriptions() {
+                const response = await fetch(`${this.baseUrl}/api/subscriptions`, { headers: this._authHeaders() });
+                if (this._handleAuthError(response)) return;
+                if (!response.ok) throw new Error('Failed to fetch upcoming subscriptions');
+                return await response.json();
+            }
             async getGlobalStatuses() {
                 const response = await fetch(`${this.baseUrl}/api/global-statuses`);
                 if (!response.ok) throw new Error('Failed to fetch global statuses');
@@ -1688,6 +1694,17 @@
 
         /* ===== ACTIVE DOWNLOADS ===== */
         .active-downloads { margin-bottom: 24px; }
+        /* Scheduled auto-downloads row */
+        .section-sub { font-size: 0.8rem; color: var(--text-muted, #888); }
+        .upcoming-subs-row { display: flex; gap: 14px; overflow-x: auto; padding: 4px 2px 10px; scrollbar-width: thin; }
+        .upcoming-sub-card { flex: 0 0 auto; width: 118px; cursor: default; }
+        .upcoming-sub-poster { position: relative; width: 118px; height: 174px; border-radius: 10px; overflow: hidden; background: var(--bg-card, #1a1a1a); box-shadow: 0 4px 12px rgba(0,0,0,.35); }
+        .upcoming-sub-poster img { width: 100%; height: 100%; object-fit: cover; display: block; }
+        .upcoming-noposter { width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2.5rem; font-weight: 700; color: var(--text-muted, #888); }
+        .upcoming-sub-badge { position: absolute; top: 6px; left: 6px; background: var(--accent, #1abc9c); color: #fff; font-size: 0.62rem; font-weight: 800; letter-spacing: .5px; padding: 2px 6px; border-radius: 6px; }
+        .upcoming-sub-title { margin-top: 6px; font-size: 0.82rem; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .upcoming-sub-day { font-size: 0.72rem; color: var(--text-muted, #888); }
+        .upcoming-subs-count { font-size: 0.68rem; color: var(--accent, #1abc9c); }
         .active-downloads-title {
             font-size: 16px;
             font-weight: 600;
@@ -1925,6 +1942,15 @@
                     Active Downloads <span class="count-badge" id="activeDownloadsCount">0</span>
                 </div>
                 <div class="download-cards" id="downloadCards"></div>
+            </div>
+
+            <!-- Scheduled auto-downloads — shows everyone's active subscriptions -->
+            <div id="upcomingSubsSection" class="section" style="display:none;">
+                <div class="section-head">
+                    <h2 class="section-title">📅 Auto-Downloading New Episodes</h2>
+                    <div class="section-actions"><span class="section-sub" id="upcomingSubsSub"></span></div>
+                </div>
+                <div class="upcoming-subs-row" id="upcomingSubsRow"></div>
             </div>
 
             <!-- My Requests View (hidden by default) -->
@@ -2517,6 +2543,7 @@
             loadUserData();
             loadUserRequests();
             loadUserSubscriptions();
+            loadUpcomingSubscriptions();
             listenForRequestUpdates();
 
             // Welcome popup (only auto-show once), then What's New after
@@ -3455,6 +3482,42 @@
             } catch (e) { /* non-fatal */ }
         }
 
+        // Global "scheduled auto-downloads" row — everyone sees which shows are set
+        // to auto-download new episodes.
+        async function loadUpcomingSubscriptions() {
+            const section = document.getElementById('upcomingSubsSection');
+            if (!section) return;
+            try {
+                const res = await window.apiClient.getUpcomingSubscriptions();
+                const shows = (res?.shows || []);
+                if (!shows.length || currentView !== 'home') { section.style.display = 'none'; return; }
+
+                const sub = document.getElementById('upcomingSubsSub');
+                if (sub) sub.textContent = `${shows.length} show${shows.length === 1 ? '' : 's'}`;
+
+                const row = document.getElementById('upcomingSubsRow');
+                row.innerHTML = shows.map(s => {
+                    const poster = s.posterPath
+                        ? `https://image.tmdb.org/t/p/w300${s.posterPath}`
+                        : '';
+                    const day = s.releaseDay ? s.releaseDay.charAt(0).toUpperCase() + s.releaseDay.slice(1) + 's' : 'New episodes';
+                    const subs = s.subscribers > 1 ? `<span class="upcoming-subs-count">${s.subscribers} subscribers</span>` : '';
+                    const posterHtml = poster
+                        ? `<img src="${poster}" alt="" loading="lazy">`
+                        : `<div class="upcoming-noposter">${(s.title || '?').charAt(0)}</div>`;
+                    return `<div class="upcoming-sub-card" title="${(s.title || '').replace(/"/g, '&quot;')}">
+                        <div class="upcoming-sub-poster">${posterHtml}<div class="upcoming-sub-badge">AUTO</div></div>
+                        <div class="upcoming-sub-title">${s.title || ''}</div>
+                        <div class="upcoming-sub-day">${day}</div>
+                        ${subs}
+                    </div>`;
+                }).join('');
+                section.style.display = 'block';
+            } catch (e) {
+                section.style.display = 'none';
+            }
+        }
+
         // Renders the "auto-download new episodes" bar for the season modal (inline
         // styles so it needs no CSS changes). `media` is the selected TV show.
         function subBarHtml(media) {
@@ -4013,12 +4076,15 @@
                 });
                 myReqView.classList.remove('visible');
                 renderActiveDownloads();
+                loadUpcomingSubscriptions();
             } else {
                 homeElements.forEach(id => {
                     const el = document.getElementById(id);
                     if (el) el.style.display = 'none';
                 });
                 if (activeDl) activeDl.style.display = 'none';
+                const upc = document.getElementById('upcomingSubsSection');
+                if (upc) upc.style.display = 'none';
                 myReqView.classList.add('visible');
                 renderMyRequestsView();
                 if (!cachedUserStats) loadUserStats();
