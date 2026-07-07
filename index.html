@@ -2985,9 +2985,9 @@
                         btnClass = 'downloading';
                         break;
                     case 'error':
-                        const errAge = Date.now() - new Date(userRequest.timestamp?.seconds * 1000 || userRequest.lastUpdated || Date.now());
-                        if (errAge > 60000) { btnText = 'Retry Request'; btnClass = 'retry'; btnDisabled = false; }
-                        else { btnText = 'Processing...'; btnClass = 'pending'; }
+                        // An error is a failure, not "processing" — always show a clear retry.
+                        btnText = 'Retry Request'; btnClass = 'retry'; btnDisabled = false;
+                        statusHTML = '<div class="status-info error">Something went wrong — tap to try again.</div>';
                         break;
                     case 'searching': btnText = 'Searching...'; btnClass = 'searching'; break;
                     case 'selecting': btnText = 'Selecting...'; btnClass = 'searching'; break;
