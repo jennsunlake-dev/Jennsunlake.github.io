@@ -2958,7 +2958,11 @@
                         break;
                     case 'approved': btnText = 'Approved'; btnClass = 'approved'; break;
                     case 'not_available':
-                        if (userRequest.retryAfter) {
+                        if (userRequest.reason === 'cam_only' || /\bcam\b/i.test(userRequest.statusMessage || '')) {
+                            // Only cam/low-quality releases were found — let the user retry later.
+                            btnText = 'CAM only — Try again later'; btnClass = 'not_available'; btnDisabled = false;
+                            statusHTML = '<div class="status-info error">Only a low-quality (CAM) copy is out right now. Try again in a day or two.</div>';
+                        } else if (userRequest.retryAfter) {
                             const cd = countdownFrom(userRequest.retryAfter);
                             if (!cd.expired) { btnText = cd.message; btnClass = 'not_available'; }
                             else { btnText = 'Not Available - Retry'; btnClass = 'not_available'; btnDisabled = false; }
