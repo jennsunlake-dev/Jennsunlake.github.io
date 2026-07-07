@@ -3508,7 +3508,14 @@
                     const poster = s.posterPath
                         ? `https://image.tmdb.org/t/p/w300${s.posterPath}`
                         : '';
-                    const day = s.releaseDay ? s.releaseDay.charAt(0).toUpperCase() + s.releaseDay.slice(1) + 's' : 'New episodes';
+                    let day;
+                    if (s.nextEpisodeAirsAt) {
+                        const dt = new Date(s.nextEpisodeAirsAt);
+                        const when = dt.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+                        day = `${s.nextEpisodeLabel ? s.nextEpisodeLabel + ' · ' : 'Next '}${when}`;
+                    } else {
+                        day = s.releaseDay ? s.releaseDay.charAt(0).toUpperCase() + s.releaseDay.slice(1) + 's' : 'New episodes';
+                    }
                     const subs = s.subscribers > 1 ? `<span class="upcoming-subs-count">${s.subscribers} subscribers</span>` : '';
                     const posterHtml = poster
                         ? `<img src="${poster}" alt="" loading="lazy">`
