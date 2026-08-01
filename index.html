@@ -3877,13 +3877,27 @@
         }
 
         function startGlobalStatusPolling() {
+            // Poll budget matters: every poll costs Firestore document reads on the
+            // backend, so we (a) never poll a backgrounded tab, and (b) poll the two
+            // feeds at different rates. Request statuses change minute-to-minute;
+            // Plex availability changes a couple of times a day.
+            const STATUS_POLL_MS = 15000;
+            const AVAILABILITY_POLL_MS = 120000;
+
             setInterval(async () => {
+                if (document.hidden) return;          // backgrounded tab costs nothing
                 await loadGlobalStatuses();
+                refreshAllCardStatuses();
+            }, STATUS_POLL_MS);
+
+            setInterval(async () => {
+                if (document.hidden) return;
                 await loadGlobalPlexAvailability();
                 refreshAllCardStatuses();
-            }, 10000);
+            }, AVAILABILITY_POLL_MS);
 
-            // Refresh immediately when user returns to tab (critical for iPhone)
+            // Refresh immediately when user returns to tab (critical for iPhone,
+            // and what makes skipping hidden-tab polls invisible to the user)
             document.addEventListener('visibilitychange', async () => {
                 if (document.visibilityState === 'visible') {
                     await loadGlobalStatuses();
