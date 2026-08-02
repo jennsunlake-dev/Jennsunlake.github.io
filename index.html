@@ -2963,12 +2963,7 @@
                     case 'already_exists': btnText = 'Available on Plex'; btnClass = 'available'; break;
                     case 'added_to_client': case 'added': btnText = 'Added to Queue'; btnClass = 'added_to_queue'; break;
                     case 'downloading':
-                        btnText = 'Downloading';
-                        if (userRequest.progress > 0) {
-                            const pct = Math.round(userRequest.progress * 100);
-                            btnText = `Downloading ${pct}%`;
-                            if (userRequest.etaFormatted && userRequest.etaFormatted !== 'Calculating...') btnText += ` - ${userRequest.etaFormatted}`;
-                        }
+                        btnText = formatDownloadLabel(userRequest);
                         btnClass = 'downloading';
                         break;
                     case 'error':
@@ -3723,16 +3718,39 @@
             // Enable retry buttons
             if (['not_available', 'error'].includes(status)) btn.disabled = false;
 
-            // Special: downloading with progress
+            // Special: downloading with live progress, speed and ETA
             if (status === 'downloading') {
-                let dlText = 'Downloading...';
-                if (data?.progress > 0) {
-                    dlText = `Downloading ${Math.round(data.progress * 100)}%`;
-                    if (data.etaFormatted && data.etaFormatted !== 'Calculating...') dlText += ` - ${data.etaFormatted}`;
-                }
-                btn.textContent = dlText;
+                btn.textContent = formatDownloadLabel(data);
                 btn.className = 'req-btn downloading';
             }
+        }
+
+        // Build the "Downloading 45% · 12.3 MB/s · 8m left" label.
+        // Used for both the user's own card and the global status overlay so the
+        // two can never drift apart.
+        function formatDownloadLabel(data) {
+            if (!data) return 'Downloading...';
+            const parts = [];
+
+            const pct = data.progress > 0 ? Math.round(data.progress * 100) : null;
+            parts.push(pct !== null ? `Downloading ${pct}%` : 'Downloading...');
+
+            // Speed is only meaningful if it was reported recently. A finished or
+            // stalled torrent keeps its last written value forever, and showing a
+            // stale "12 MB/s" next to a frozen percentage reads as a bug.
+            const ageMs = data.lastUpdated ? (Date.now() - new Date(data.lastUpdated).getTime()) : 0;
+            const fresh = !data.lastUpdated || ageMs < 120000;
+            if (fresh && data.downloadSpeed > 0) {
+                const mbps = data.downloadSpeed / 1048576;
+                parts.push(mbps >= 1 ? `${mbps.toFixed(1)} MB/s`
+                                     : `${Math.round(data.downloadSpeed / 1024)} KB/s`);
+            }
+
+            if (fresh && data.etaFormatted && data.etaFormatted !== 'Calculating...' && data.etaFormatted !== 'Complete') {
+                parts.push(data.etaFormatted);
+            }
+
+            return parts.join(' · ');
         }
 
         function formatRequestedEpisodes(episodeData, status) {
@@ -3868,14 +3886,32 @@
             // backend, so we (a) never poll a backgrounded tab, and (b) poll the two
             // feeds at different rates. Request statuses change minute-to-minute;
             // Plex availability changes a couple of times a day.
-            const STATUS_POLL_MS = 15000;
+            const STATUS_POLL_IDLE_MS = 15000;
+            const STATUS_POLL_ACTIVE_MS = 4000;   // while something is downloading
             const AVAILABILITY_POLL_MS = 120000;
 
-            setInterval(async () => {
-                if (document.hidden) return;          // backgrounded tab costs nothing
-                await loadGlobalStatuses();
-                refreshAllCardStatuses();
-            }, STATUS_POLL_MS);
+            // Adaptive cadence: poll fast enough that the live speed/percentage
+            // actually moves while a download is running, and back off to the
+            // idle rate the rest of the time so we aren't billing reads for a
+            // screen where nothing changes.
+            let statusTimer = null;
+            const anyDownloading = () => {
+                for (const s of globalRequestStatuses.values()) {
+                    if (s && (s.status === 'downloading' || s.status === 'processing')) return true;
+                }
+                return false;
+            };
+            const scheduleStatusPoll = (delay) => {
+                clearTimeout(statusTimer);
+                statusTimer = setTimeout(async () => {
+                    if (!document.hidden) {           // backgrounded tab costs nothing
+                        await loadGlobalStatuses();
+                        refreshAllCardStatuses();
+                    }
+                    scheduleStatusPoll(anyDownloading() ? STATUS_POLL_ACTIVE_MS : STATUS_POLL_IDLE_MS);
+                }, delay);
+            };
+            scheduleStatusPoll(STATUS_POLL_ACTIVE_MS);
 
             setInterval(async () => {
                 if (document.hidden) return;
