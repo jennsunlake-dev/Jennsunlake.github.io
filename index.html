@@ -2971,11 +2971,14 @@
                         btnText = 'Retry Request'; btnClass = 'retry'; btnDisabled = false;
                         statusHTML = '<div class="status-info error">Something went wrong — tap to try again.</div>';
                         break;
-                    case 'searching': btnText = 'Searching...'; btnClass = 'searching'; break;
-                    case 'selecting': btnText = 'Selecting...'; btnClass = 'searching'; break;
-                    case 'adding': btnText = 'Adding...'; btnClass = 'searching'; break;
-                    case 'completed': case 'available': btnText = 'Available on Plex'; btnClass = 'available'; break;
-                    default: btnText = userRequest.status; btnClass = 'pending';
+                    // Everything without special handling above comes from the
+                    // shared table, so this branch and the global-status path can
+                    // never disagree, and an unknown status degrades to
+                    // "Working..." instead of leaking its internal name.
+                    default: {
+                        const [t, c] = statusLabel(userRequest.status);
+                        btnText = t; btnClass = c;
+                    }
                 }
             }
 
@@ -3694,24 +3697,7 @@
             if (!btn) return;
             btn.disabled = true;
 
-            const statusMap = {
-                'pending': ['Pending...', 'pending'],
-                'received': ['Processing...', 'pending'],
-                'approved': ['Approved', 'approved'],
-                'not_available': ['Not Available - Retry', 'not_available'],
-                'no_storage': ['No Storage', 'no_storage'],
-                'already_exists': ['Available on Plex', 'available'],
-                'added_to_client': ['Added to Queue', 'added_to_queue'],
-                'added': ['Added to Queue', 'added_to_queue'],
-                'searching': ['Searching...', 'searching'],
-                'selecting': ['Selecting...', 'searching'],
-                'adding': ['Adding...', 'searching'],
-                'completed': ['Available on Plex', 'available'],
-                'available': ['Available on Plex', 'available'],
-                'error': ['Retry Request', 'retry']
-            };
-
-            const [text, cls] = statusMap[status] || [status, 'pending'];
+            const [text, cls] = statusLabel(status);
             btn.textContent = text;
             btn.className = `req-btn ${cls}`;
 
@@ -3723,6 +3709,44 @@
                 btn.textContent = formatDownloadLabel(data);
                 btn.className = 'req-btn downloading';
             }
+        }
+
+        // Single source of truth for status -> [label, css class].
+        //
+        // There used to be two of these — a map for other people's cards and a
+        // switch for your own — and they had drifted apart. Statuses the backend
+        // really emits (processing, checking, checking_space, preparing, queued)
+        // were in neither, and the fallback rendered the raw value, so buttons
+        // showed literal text like "checking_space".
+        const STATUS_LABELS = {
+            pending:         ['Pending...',        'pending'],
+            received:        ['Processing...',     'pending'],
+            approved:        ['Approved',          'approved'],
+            checking:        ['Checking...',       'searching'],
+            checking_space:  ['Checking space...', 'searching'],
+            searching:       ['Searching...',      'searching'],
+            selecting:       ['Selecting...',      'searching'],
+            preparing:       ['Preparing...',      'searching'],
+            adding:          ['Adding...',         'searching'],
+            queued:          ['Queued...',         'added_to_queue'],
+            added_to_queue:  ['Added to Queue',    'added_to_queue'],
+            added_to_client: ['Added to Queue',    'added_to_queue'],
+            added:           ['Added to Queue',    'added_to_queue'],
+            processing:      ['Processing...',     'added_to_queue'],
+            completed:       ['Available on Plex', 'available'],
+            available:       ['Available on Plex', 'available'],
+            already_exists:  ['Available on Plex', 'available'],
+            no_storage:      ['No Storage',        'no_storage'],
+            not_available:   ['Not Available - Retry', 'not_available'],
+            error:           ['Retry Request',     'retry'],
+            cancelled:       ['Cancelled',         'pending'],
+            deleted:         ['Removed',           'pending'],
+        };
+
+        // Never show a raw status string to a user. Anything unrecognised becomes
+        // a neutral "Working..." rather than leaking an internal identifier.
+        function statusLabel(status) {
+            return STATUS_LABELS[status] || ['Working...', 'pending'];
         }
 
         // Build the "Downloading 45% · 12.3 MB/s · 8m left" label.
