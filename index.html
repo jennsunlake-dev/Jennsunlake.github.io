@@ -3635,7 +3635,15 @@
                             userRequests.set(mediaId, data);
                         }
                     } else {
-                        userRequests.set(mediaId, data);
+                        // Keep the NEWEST request per title. This used to just
+                        // overwrite on every iteration, so whichever request
+                        // happened to come last in the response won — which
+                        // silently depends on the API's sort order. Re-requesting
+                        // a film therefore showed the status of an OLD attempt.
+                        const prev = userRequests.get(mediaId);
+                        if (!prev || new Date(data.timestamp) >= new Date(prev.timestamp)) {
+                            userRequests.set(mediaId, data);
+                        }
                     }
                 });
                 setTimeout(() => {
