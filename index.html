@@ -18,9 +18,10 @@
 
         class ApiClient {
             constructor() {
-                // Cutover: point this at the Cloudflare Worker. Everything else
-                // stays the same — routes, payloads, and auth tokens are identical.
-                this.baseUrl = 'https://notflix-request.vercel.app';
+                // Cloudflare Worker + D1. Replaced Vercel + Firestore, whose
+                // per-document-read pricing was the reason for the migration.
+                // Routes, payloads and auth tokens are unchanged.
+                this.baseUrl = 'https://notflix-api.dayhill12.workers.dev';
                 this.currentUser = null;
                 this.idToken = null;
                 this.userToken = localStorage.getItem('notflix_user_token') || null;
