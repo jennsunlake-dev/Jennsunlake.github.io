@@ -12,12 +12,14 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script type="module">
-        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-app.js';
-        import { getAuth } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-auth.js';
-        import { getFirestore, doc, getDoc, setDoc, onSnapshot, collection, query, where, orderBy, limit as firestoreLimit } from 'https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore.js';
+        // No Firebase SDK. Everything goes through the backend API below, which
+        // is the only thing that talks to the database. This also drops ~300KB
+        // of SDK from every page load.
 
         class ApiClient {
             constructor() {
+                // Cutover: point this at the Cloudflare Worker. Everything else
+                // stays the same — routes, payloads, and auth tokens are identical.
                 this.baseUrl = 'https://notflix-request.vercel.app';
                 this.currentUser = null;
                 this.idToken = null;
@@ -168,30 +170,8 @@
         }
 
         window.apiClient = new ApiClient();
-        let firebaseApp, auth;
 
-        window.apiClient.getConfig().then(config => {
-            if (config.firebase && config.firebase.apiKey) {
-                try {
-                    firebaseApp = initializeApp(config.firebase);
-                    auth = getAuth(firebaseApp);
-                    const db = getFirestore(firebaseApp);
-                    window.firebaseApp = firebaseApp;
-                    window.auth = auth;
-                    window.db = db;
-                    window.doc = doc;
-                    window.getDoc = getDoc;
-                    window.setDoc = setDoc;
-                    window.onSnapshot = onSnapshot;
-                    window.collection = collection;
-                    window.query = query;
-                    window.where = where;
-                    window.orderBy = orderBy;
-                    window.firestoreLimit = firestoreLimit;
-                } catch (e) {
-                    console.warn('Firebase init failed:', e);
-                }
-            }
+        window.apiClient.getConfig().then(() => {
             // TMDB key no longer exposed to frontend — use /api/tmdb/* proxy
             loadPopularContent();
         }).catch(error => {
@@ -2591,10 +2571,11 @@
 
         async function loadUserData() {
             // The backend (/api/check-user-access) is the source of truth for a
-            // user's tier and weekly limit. The client-side Firestore doc here uses
-            // a different APP_ID/doc-id than the bot writes, so it never matches —
-            // trusting it caused STANDARD users to show unlimited. Use the signed-in
-            // values instead and never default a real tier to "unlimited".
+            // user's tier and weekly limit. This used to read the user document
+            // directly from the client under a different APP_ID/doc-id than the
+            // bot writes, so it never matched — and trusting it made STANDARD
+            // users show as unlimited. Use the signed-in values instead and never
+            // default a real tier to "unlimited".
             const tierKey = (currentUser?.tier || 'STANDARD').toUpperCase();
             userTier = tierKey;
 
@@ -2608,11 +2589,16 @@
 
             userRequestCount = 0;
             try {
-                if (window.db && currentUser) {
-                    const userDocRef = window.doc(window.db, `artifacts/${APP_ID}/public/data/users`, currentUser.id);
-                    const userDoc = await window.getDoc(userDocRef);
-                    if (userDoc.exists() && typeof userDoc.data().requestCount === 'number') {
-                        userRequestCount = userDoc.data().requestCount;
+                if (currentUser) {
+                    // Was a direct Firestore read. The backend is now the only
+                    // thing that touches the database, so this goes through the
+                    // API — which also means it respects the auth token instead
+                    // of relying on client-side database rules.
+                    const res = await fetch(`${window.apiClient.baseUrl}/api/user/${encodeURIComponent(currentUser.id)}`,
+                        { headers: window.apiClient._authHeaders() });
+                    if (res.ok) {
+                        const data = await res.json();
+                        if (typeof data.requestCount === 'number') userRequestCount = data.requestCount;
                     }
                 }
             } catch (e) { /* keep userRequestCount at 0 */ }
