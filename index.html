@@ -2133,11 +2133,13 @@
                 if (data) {
                     globalAvailabilityCache.set(mediaId, data);
                     // The episode picker reads these off the card element.
-                    const card = document.querySelector(`.media-card[data-media-id="${mediaId}"]`);
-                    if (card) {
+                    // ALL matching cards — the same title can be on the home grid
+                    // and in My Requests at once, and querySelector would only
+                    // reach whichever happens to be first in the DOM.
+                    document.querySelectorAll(`.media-card[data-media-id="${mediaId}"]`).forEach(card => {
                         if (data.availableEpisodes) card.dataset.availableEpisodes = JSON.stringify(data.availableEpisodes);
                         if (data.plexEpisodes) card.dataset.plexEpisodes = JSON.stringify(data.plexEpisodes);
-                    }
+                    });
                 }
                 return data;
             } catch (e) { return null; }
@@ -3374,8 +3376,14 @@
                 const existingEpisodes = existingRequest?.selectedEpisodes || {};
                 let globallyAvailableEpisodes = {};
                 let plexAvailableEpisodes = {};
-                if (card?.dataset.availableEpisodes) try { globallyAvailableEpisodes = JSON.parse(card.dataset.availableEpisodes); } catch (e) {}
-                if (card?.dataset.plexEpisodes) try { plexAvailableEpisodes = JSON.parse(card.dataset.plexEpisodes); } catch (e) {}
+                // Prefer the fetched record over the DOM: the dataset is only a
+                // mirror, and a card may not be rendered at all (deep link, or the
+                // title scrolled out of a virtualised list).
+                const availRec = globalAvailabilityCache.get(mediaId);
+                if (availRec?.availableEpisodes) globallyAvailableEpisodes = availRec.availableEpisodes;
+                else if (card?.dataset.availableEpisodes) try { globallyAvailableEpisodes = JSON.parse(card.dataset.availableEpisodes); } catch (e) {}
+                if (availRec?.plexEpisodes) plexAvailableEpisodes = availRec.plexEpisodes;
+                else if (card?.dataset.plexEpisodes) try { plexAvailableEpisodes = JSON.parse(card.dataset.plexEpisodes); } catch (e) {}
 
                 let html = (selectedMedia ? subBarHtml(selectedMedia) : '') + `<div class="episode-legend">
                     <div class="legend-item"><div class="legend-dot default"></div> Available</div>
