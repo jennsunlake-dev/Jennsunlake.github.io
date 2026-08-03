@@ -3693,19 +3693,25 @@
                                 if (!existing.selectedEpisodes[season]) existing.selectedEpisodes[season] = [];
                                 existing.selectedEpisodes[season] = [...new Set([...existing.selectedEpisodes[season], ...episodes])].sort((a, b) => a - b);
                             }
-                            if (data.status === 'approved' || existing.status !== 'approved') existing.status = data.status;
-                            // Carry the live download telemetry across too. Only
-                            // `status` used to be copied here, so once a TV entry
-                            // was cached its percentage and speed froze at their
-                            // first-poll values — and then the 2-minute freshness
-                            // gate in formatDownloadLabel dropped speed/ETA for good.
-                            for (const k of ['progress', 'eta', 'etaFormatted', 'downloadSpeed',
-                                             'downloadSpeedFormatted', 'totalSizeFormatted',
-                                             'lastUpdated', 'statusMessage', 'reason']) {
-                                if (data[k] !== undefined) existing[k] = data[k];
+                            // Episodes MERGE across every request (the union is what
+                            // the user owns/asked for), but STATUS and telemetry must
+                            // come from the newest request only. The API returns
+                            // newest-first, so overwriting unconditionally let the
+                            // last-iterated — i.e. the OLDEST — request win: a brand
+                            // new request sat showing a months-old "Not Available"
+                            // while the backend was already searching.
+                            const dataTs = tsMillis(data.timestamp);
+                            if (dataTs >= (existing._statusTs || 0)) {
+                                existing._statusTs = dataTs;
+                                existing.status = data.status;
+                                for (const k of ['progress', 'eta', 'etaFormatted', 'downloadSpeed',
+                                                 'downloadSpeedFormatted', 'totalSizeFormatted',
+                                                 'lastUpdated', 'statusMessage', 'reason', 'timestamp']) {
+                                    if (data[k] !== undefined) existing[k] = data[k];
+                                }
                             }
                         } else {
-                            userRequests.set(mediaId, data);
+                            userRequests.set(mediaId, { ...data, _statusTs: tsMillis(data.timestamp) });
                         }
                     } else {
                         // Keep the NEWEST request per title. This used to just
