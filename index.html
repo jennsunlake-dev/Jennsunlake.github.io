@@ -4043,6 +4043,14 @@
                 for (const s of globalRequestStatuses.values()) {
                     if (s && isInFlight(s.status)) return true;
                 }
+                // Also watch YOUR OWN requests. When a request reaches a terminal
+                // state the global feed drops it, so gating purely on that feed
+                // stopped the refresh one poll too early — the card froze on
+                // "searching" while the backend had already finished. Keep polling
+                // until your own copy has caught up to a terminal status too.
+                for (const r of userRequests.values()) {
+                    if (r && isInFlight(r.status)) return true;
+                }
                 return false;
             };
             const scheduleStatusPoll = (delay) => {
