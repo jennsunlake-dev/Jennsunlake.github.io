@@ -3005,11 +3005,6 @@
                         btnClass = 'downloading';
                         btnDisabled = true;
                         statusHTML = `<div class="status-info info">Already being downloaded</div>`;
-                    } else if (['pending', 'received', 'approved', 'searching', 'selecting', 'adding', 'processing'].includes(gs)) {
-                        btnText = 'Already Requested';
-                        btnClass = 'pending';
-                        btnDisabled = true;
-                        statusHTML = `<div class="status-info info">Already requested by another user</div>`;
                     } else if (['added_to_client', 'added_to_queue', 'added'].includes(gs)) {
                         btnText = 'In Download Queue';
                         btnClass = 'added_to_queue';
@@ -3026,6 +3021,17 @@
                         btnClass = 'not_available';
                         btnDisabled = false;
                         statusHTML = `<div class="status-info error">Only a low-quality (CAM) copy is out right now. Try again in a day or two.</div>`;
+                    } else if (isInFlight(gs)) {
+                        // Catch-all for every remaining in-flight status. This was a
+                        // hardcoded list that omitted `checking` — the very first step
+                        // after a request is approved — so during that window the title
+                        // vanished from other people's cards and they could start a
+                        // duplicate. Deriving it from isInFlight() means a new backend
+                        // status can never silently fall through again.
+                        btnText = 'Already Requested';
+                        btnClass = 'pending';
+                        btnDisabled = true;
+                        statusHTML = `<div class="status-info info">Already requested by another user</div>`;
                     }
                     // For TV shows, still allow requesting different episodes
                     if (mediaType === 'tv' && btnDisabled) {
