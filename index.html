@@ -4027,18 +4027,30 @@
                 }
                 return false;
             };
+            // Anything still working — pending, checking, searching, downloading...
+            // Refreshing only on `downloading` was too narrow: a request spends its
+            // first minutes in pending/checking/searching, so the requester's own
+            // copy was never reloaded during exactly the window they are watching.
+            // Their card then found no request of their own and fell through to
+            // "Already requested by another user" until the download began.
+            const anyInFlight = () => {
+                for (const s of globalRequestStatuses.values()) {
+                    if (s && isInFlight(s.status)) return true;
+                }
+                return false;
+            };
             const scheduleStatusPoll = (delay) => {
                 clearTimeout(statusTimer);
                 statusTimer = setTimeout(async () => {
                     if (!document.hidden) {           // backgrounded tab costs nothing
                         await loadGlobalStatuses();
-                        // Your OWN requests are the source of the live percent/speed
-                        // on your own cards, and this was only ever loaded once at
-                        // sign-in — so the numbers sat frozen at whatever they were
-                        // when you logged in. Refresh them while something is
-                        // actually downloading; skip it otherwise so an idle tab
-                        // doesn't pay for a call whose answer cannot have changed.
-                        if (currentUser && anyDownloading()) await loadUserRequests();
+                        // Your OWN requests drive your own cards — their status,
+                        // and the live percent/speed while downloading. This was
+                        // loaded once at sign-in, so it sat frozen; refresh it
+                        // whenever ANYTHING is in flight, and skip it when nothing
+                        // is, so an idle tab doesn't pay for a call whose answer
+                        // cannot have changed.
+                        if (currentUser && anyInFlight()) await loadUserRequests();
                         refreshAllCardStatuses();
                         // These used to be driven by a server-sent-events channel
                         // that no longer exists (the /listen route died with the
