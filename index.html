@@ -714,6 +714,14 @@
             color: #000;
             box-shadow: 0 2px 8px rgba(245, 158, 11, 0.4);
         }
+        /* Only a cam rip exists right now. Uses --error (#ef4444) rather than
+           --warning, because amber is already .partial and two differently-meaning
+           badges in the same corner must not look alike. */
+        .avail-badge.cam-only {
+            background: rgba(239, 68, 68, 0.92);
+            color: white;
+            box-shadow: 0 2px 8px rgba(239, 68, 68, 0.4);
+        }
 
         .rating-badge {
             font-size: 0.7rem;
@@ -2947,6 +2955,7 @@
                     case 'not_available':
                         if (userRequest.reason === 'cam_only' || /\bcam\b/i.test(userRequest.statusMessage || '')) {
                             // Only cam/low-quality releases were found — let the user retry later.
+                            availBadge = 'cam-only';
                             btnText = 'CAM only — Try again later'; btnClass = 'not_available'; btnDisabled = false;
                             statusHTML = '<div class="status-info error">Only a low-quality (CAM) copy is out right now. Try again in a day or two.</div>';
                         } else if (userRequest.reason === 'stalled') {
@@ -3002,6 +3011,17 @@
                         btnClass = 'added_to_queue';
                         btnDisabled = true;
                         statusHTML = `<div class="status-info info">Queued for download</div>`;
+                    } else if (globalStatus.camOnly || globalStatus.reason === 'cam_only'
+                               || (gs === 'not_available' && /\bcam\b/i.test(globalStatus.statusMessage || ''))) {
+                        // "only a cam rip exists" is a fact about the FILM, not about
+                        // whoever requested it — so show it to EVERYONE on the poster,
+                        // rather than each person finding out by requesting and failing.
+                        // Deliberately left ENABLED: a better release may appear any day.
+                        availBadge = 'cam-only';
+                        btnText = 'CAM only — Try again later';
+                        btnClass = 'not_available';
+                        btnDisabled = false;
+                        statusHTML = `<div class="status-info error">Only a low-quality (CAM) copy is out right now. Try again in a day or two.</div>`;
                     }
                     // For TV shows, still allow requesting different episodes
                     if (mediaType === 'tv' && btnDisabled) {
@@ -3104,7 +3124,9 @@
                 ? '<span class="avail-badge on-plex">On Plex</span>'
                 : availBadge === 'partial'
                     ? '<span class="avail-badge partial">Partial</span>'
-                    : '';
+                    : availBadge === 'cam-only'
+                        ? '<span class="avail-badge cam-only" title="Only a low-quality CAM copy is available right now">CAM ONLY</span>'
+                        : '';
 
             card.innerHTML = `
                 <div class="poster-wrap">
@@ -3174,10 +3196,16 @@
             const mediaType = selectedMedia.media_type || currentMediaType;
             const mediaId = `${mediaType}-${selectedMedia.id}`;
 
-            // Client-side duplicate check for movies
+            // Client-side duplicate check for movies.
+            // Gate on STATUS, not mere presence: the global feed also carries
+            // terminal states (a CAM-only title stays listed so everyone can see
+            // the badge). Blocking on presence alone would make those titles
+            // permanently un-requestable — you could never retry once a better
+            // release appeared.
             if (mediaType === 'movie') {
                 const globalStatus = globalRequestStatuses.get(mediaId);
-                if (globalStatus) {
+                const TERMINAL = ['not_available', 'error', 'no_storage', 'cancelled', 'deleted'];
+                if (globalStatus && !TERMINAL.includes(globalStatus.status)) {
                     showToast(`${selectedMedia.title || selectedMedia.name} is already being processed (${globalStatus.status})`, 'error');
                     return;
                 }
@@ -3717,6 +3745,16 @@
                 btn.textContent = formatDownloadLabel(data);
                 btn.className = 'req-btn downloading';
             }
+
+            // Special: CAM-only. This path bypasses getStatusInfo entirely, so
+            // without this it would relabel the button to the generic
+            // "Not Available - Retry" and lose the reason.
+            if (status === 'not_available' &&
+                (data?.camOnly || data?.reason === 'cam_only' || /\bcam\b/i.test(data?.statusMessage || ''))) {
+                btn.textContent = 'CAM only — Try again later';
+                btn.className = 'req-btn not_available';
+                btn.disabled = false;
+            }
         }
 
         // Single source of truth for status -> [label, css class].
@@ -3846,17 +3884,21 @@
         }
 
         // ===== GLOBAL STATUS =====
+        // Both feeds are REPLACED, not merged. Merging never evicts: a title that
+        // was CAM-only and later downloads fine drops out of the feed, but the
+        // stale entry would live on for the lifetime of the tab — leaving a
+        // permanent CAM badge on something that is now sitting on Plex.
         async function loadGlobalStatuses() {
             try {
                 const response = await window.apiClient.getGlobalStatuses();
-                Object.entries(response.statuses).forEach(([id, status]) => globalRequestStatuses.set(id, status));
+                globalRequestStatuses = new Map(Object.entries(response.statuses || {}));
             } catch (e) {}
         }
 
         async function loadGlobalPlexAvailability() {
             try {
                 const response = await window.apiClient.getGlobalPlexAvailability();
-                Object.entries(response.availability).forEach(([id, avail]) => globalPlexAvailability.set(id, avail));
+                globalPlexAvailability = new Map(Object.entries(response.availability || {}));
             } catch (e) {}
         }
 
@@ -3888,24 +3930,31 @@
                     statusDiv.remove();
                 }
 
-                // Update availability badge on poster
+                // Update availability badge on poster.
+                // Every badge value must be handled here: the trailing else
+                // REMOVES any badge it doesn't recognise, so a value rendered by
+                // createMediaCard but missing from this list would appear on first
+                // paint and then silently vanish on the next poll.
                 const posterWrap = card.querySelector('.poster-wrap');
                 if (posterWrap) {
                     let badge = posterWrap.querySelector('.avail-badge');
-                    if (availBadge === 'on-plex') {
+                    const BADGES = {
+                        'on-plex':  ['avail-badge on-plex',  'On Plex',  ''],
+                        'partial':  ['avail-badge partial',  'Partial',  ''],
+                        'cam-only': ['avail-badge cam-only', 'CAM ONLY', 'Only a low-quality CAM copy is available right now'],
+                    };
+                    const spec = BADGES[availBadge];
+                    if (spec) {
                         if (!badge) {
                             badge = document.createElement('span');
+                            // insertBefore with a null reference appends, which is
+                            // the right fallback for card markup that has no
+                            // .poster-overlay (the My Requests cards).
                             posterWrap.insertBefore(badge, posterWrap.querySelector('.poster-overlay'));
                         }
-                        badge.className = 'avail-badge on-plex';
-                        badge.textContent = 'On Plex';
-                    } else if (availBadge === 'partial') {
-                        if (!badge) {
-                            badge = document.createElement('span');
-                            posterWrap.insertBefore(badge, posterWrap.querySelector('.poster-overlay'));
-                        }
-                        badge.className = 'avail-badge partial';
-                        badge.textContent = 'Partial';
+                        badge.className = spec[0];
+                        badge.textContent = spec[1];
+                        if (spec[2]) badge.title = spec[2]; else badge.removeAttribute('title');
                     } else if (badge) {
                         badge.remove();
                     }
@@ -4330,7 +4379,13 @@
                 ? `https://image.tmdb.org/t/p/w500${poster}`
                 : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg width="300" height="450" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="450" fill="#181818"/><text x="150" y="225" font-family="Arial" font-size="14" fill="#E50914" text-anchor="middle">${title.substring(0,25)}</text></svg>`)}`;
             const status = req.status || 'pending';
-            const statusLabel = status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+            const isCam = status === 'not_available' &&
+                (req.reason === 'cam_only' || /\bcam\b/i.test(req.statusMessage || ''));
+            // This view builds its own markup and never calls getStatusInfo, so
+            // the pill would otherwise read a bare "Not Available" with no reason.
+            const statusLabel = isCam
+                ? 'CAM Only'
+                : status.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
             const progress = req.progress || 0;
             const showProgress = status === 'downloading';
             const mediaType = req.mediaType || req.mediaId?.split('-')[0] || 'movie';
@@ -4341,6 +4396,7 @@
                 <div class="poster-wrap">
                     <img src="${posterUrl}" alt="${title}" class="media-poster" loading="lazy"${!poster ? ` data-needs-poster="true"` : ''}>
                     <span class="type-badge req-type-badge ${mediaType === 'tv' ? 'tv' : ''}">${mediaType === 'tv' ? 'TV' : 'Movie'}</span>
+                    ${isCam ? '<span class="avail-badge cam-only" title="Only a low-quality CAM copy is available right now">CAM ONLY</span>' : ''}
                     <div class="req-status-overlay">
                         <span class="status-pill ${status}">${statusLabel}</span>
                         ${showProgress ? `<div class="req-progress"><div class="req-progress-fill" style="width:${Math.round(progress * 100)}%"></div></div>` : ''}
