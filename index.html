@@ -2109,7 +2109,13 @@
         // ===== STATE =====
         const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
         const isLocal = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-        const PROXY_BASE = isLocal ? '/api/tmdb' : 'https://notflix-request.vercel.app/api/tmdb';
+        // TMDB proxy. This pointed at Vercel, so every search, detail view and
+        // trailer lookup took an extra hop: browser -> Vercel -> Worker -> TMDB.
+        // Vercel is retired and only proxies now, so go straight to the Worker.
+        // Keep this in step with ApiClient.baseUrl — at the custom-domain cutover
+        // both become relative ('/api/...') and CORS disappears entirely.
+        const API_ORIGIN = 'https://notflix-api.dayhill12.workers.dev';
+        const PROXY_BASE = isLocal ? '/api/tmdb' : API_ORIGIN + '/api/tmdb';
         const APP_ID = 'notflix-request';
         let currentMediaType = 'multi';
         let currentUser = null;
