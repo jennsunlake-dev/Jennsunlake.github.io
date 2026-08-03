@@ -159,15 +159,6 @@
                 if (!response.ok) throw new Error('Failed to fetch user stats');
                 return await response.json();
             }
-            listenForUpdates(userId, callback) {
-                const tokenParam = this.userToken ? `?token=${this.userToken}` : '';
-                const eventSource = new EventSource(`${this.baseUrl}/api/requests/${userId}/listen${tokenParam}`);
-                eventSource.onmessage = function(event) {
-                    try { callback(JSON.parse(event.data)); } catch (e) { console.error('SSE parse error:', e); }
-                };
-                eventSource.onerror = function(error) { console.error('SSE connection error:', error); };
-                return eventSource;
-            }
         }
 
         window.apiClient = new ApiClient();
@@ -2312,24 +2303,15 @@
                 <div id="detailTrailer"><div class="loading-state" style="padding:20px;"><div class="spinner"></div><p style="font-size:0.8rem;">Loading trailer...</p></div></div>
             `;
 
-            // Set up request button with correct status colors
-            const actionsEl = document.getElementById('detailActions');
-            const userRequest = userRequests.get(mediaId);
+            // Set up request button with correct status colors.
+            // Remember what the modal is showing so the poll can repaint it —
+            // the modal used to render once on open and then sit frozen, so a
+            // download's percentage never moved and a title that finished while
+            // you were reading about it still offered a Request button.
             let globalAvailability = null;
             try { if (window.apiClient) globalAvailability = await window.apiClient.getGlobalAvailability(item.id, mediaType); } catch (e) {}
-            const { btnText, btnClass, btnDisabled, statusHTML } = getStatusInfo(mediaType, userRequest, globalAvailability, mediaId);
-
-            actionsEl.innerHTML = `
-                ${statusHTML ? `<div style="margin-bottom:12px;">${statusHTML}</div>` : ''}
-                <button class="req-btn ${btnClass}" id="detailReqBtn" ${btnDisabled ? 'disabled' : ''}>${btnText}</button>
-            `;
-            const detailBtn = document.getElementById('detailReqBtn');
-            if (detailBtn) {
-                detailBtn.addEventListener('click', () => {
-                    closeDetailModal();
-                    requestMedia(item);
-                });
-            }
+            openDetail = { item, mediaType, mediaId, globalAvailability };
+            renderDetailActions();
 
             modal.classList.add('active');
 
@@ -2406,6 +2388,40 @@
 
         function closeDetailModal() {
             document.getElementById('detailModal').classList.remove('active');
+            openDetail = null;
+        }
+
+        // What the detail modal is currently showing, so the poll can repaint it.
+        let openDetail = null;
+
+        function renderDetailActions() {
+            if (!openDetail) return;
+            const actionsEl = document.getElementById('detailActions');
+            if (!actionsEl) return;
+            const { item, mediaType, mediaId, globalAvailability } = openDetail;
+            const userRequest = userRequests.get(mediaId);
+            const { btnText, btnClass, btnDisabled, statusHTML } =
+                getStatusInfo(mediaType, userRequest, globalAvailability, mediaId);
+
+            actionsEl.innerHTML = `
+                ${statusHTML ? `<div style="margin-bottom:12px;">${statusHTML}</div>` : ''}
+                <button class="req-btn ${btnClass}" id="detailReqBtn" ${btnDisabled ? 'disabled' : ''}>${btnText}</button>
+            `;
+            const detailBtn = document.getElementById('detailReqBtn');
+            if (detailBtn) {
+                detailBtn.addEventListener('click', () => {
+                    closeDetailModal();
+                    requestMedia(item);
+                });
+            }
+        }
+
+        // Repaint the open modal on the status poll. No-ops when nothing is open,
+        // and skips while the modal is closed so it costs nothing.
+        function refreshDetailModal() {
+            if (!openDetail) return;
+            if (!document.getElementById('detailModal')?.classList.contains('active')) return;
+            renderDetailActions();
         }
 
         // ===== TOAST =====
@@ -2533,7 +2549,6 @@
             loadUserRequests();
             loadUserSubscriptions();
             loadUpcomingSubscriptions();
-            listenForRequestUpdates();
 
             // Welcome popup (only auto-show once), then What's New after
             if (shouldShowWelcome()) {
@@ -3701,28 +3716,6 @@
             } catch (e) { console.error('Error loading requests:', e); }
         }
 
-        async function listenForRequestUpdates() {
-            if (!currentUser) return;
-            try {
-                window.apiClient.listenForUpdates(currentUser.id, (data) => {
-                    const mediaId = data.mediaType + '-' + data.tmdbId;
-                    if (data.mediaType === 'tv') {
-                        applyEpisodeStatuses(mediaId, data);
-                        const existing = userRequests.get(mediaId);
-                        if (existing?.selectedEpisodes) {
-                            for (const [season, episodes] of Object.entries(data.selectedEpisodes || {})) {
-                                if (!existing.selectedEpisodes[season]) existing.selectedEpisodes[season] = [];
-                                existing.selectedEpisodes[season] = [...new Set([...existing.selectedEpisodes[season], ...episodes])].sort((a, b) => a - b);
-                            }
-                            existing.status = data.status;
-                        } else { userRequests.set(mediaId, data); }
-                    } else { userRequests.set(mediaId, data); }
-                    updateMediaCardDisplay(mediaId);
-                    renderActiveDownloads();
-                    if (currentView === 'my-requests') renderMyRequestsView();
-                });
-            } catch (e) { console.error('SSE error:', e); }
-        }
 
         function updateMediaCardDisplay(mediaId) {
             const btn = document.getElementById('btn-' + mediaId);
@@ -4037,6 +4030,12 @@
                         // doesn't pay for a call whose answer cannot have changed.
                         if (currentUser && anyDownloading()) await loadUserRequests();
                         refreshAllCardStatuses();
+                        // These used to be driven by a server-sent-events channel
+                        // that no longer exists (the /listen route died with the
+                        // Express server), which is why the My Requests tab and the
+                        // open detail modal never updated. The poll drives them now.
+                        if (currentView === 'my-requests') renderMyRequestsView();
+                        refreshDetailModal();
                     }
                     scheduleStatusPoll(anyDownloading() ? STATUS_POLL_ACTIVE_MS : STATUS_POLL_IDLE_MS);
                 }, delay);
