@@ -2929,7 +2929,7 @@
 
             // Check user request first
             if (userRequest) {
-                const age = Date.now() - new Date(userRequest.timestamp?.seconds * 1000 || userRequest.lastUpdated || Date.now());
+                const age = Date.now() - (tsMillis(userRequest.timestamp) || tsMillis(userRequest.lastUpdated) || Date.now());
                 const isOld = age > 24 * 60 * 60 * 1000;
 
                 if (isOld && ['pending', 'processing', 'error'].includes(userRequest.status)) {
@@ -2947,7 +2947,7 @@
                 btnDisabled = true;
                 switch (userRequest.status) {
                     case 'pending':
-                        const pendingAge = Date.now() - new Date(userRequest.timestamp?.seconds * 1000 || userRequest.lastUpdated || Date.now());
+                        const pendingAge = Date.now() - (tsMillis(userRequest.timestamp) || tsMillis(userRequest.lastUpdated) || Date.now());
                         if (pendingAge > 120000) { btnText = 'Retry Request'; btnClass = 'retry'; btnDisabled = false; }
                         else { btnText = 'Pending...'; btnClass = 'pending'; }
                         break;
@@ -3663,6 +3663,16 @@
                                 existing.selectedEpisodes[season] = [...new Set([...existing.selectedEpisodes[season], ...episodes])].sort((a, b) => a - b);
                             }
                             if (data.status === 'approved' || existing.status !== 'approved') existing.status = data.status;
+                            // Carry the live download telemetry across too. Only
+                            // `status` used to be copied here, so once a TV entry
+                            // was cached its percentage and speed froze at their
+                            // first-poll values — and then the 2-minute freshness
+                            // gate in formatDownloadLabel dropped speed/ETA for good.
+                            for (const k of ['progress', 'eta', 'etaFormatted', 'downloadSpeed',
+                                             'downloadSpeedFormatted', 'totalSizeFormatted',
+                                             'lastUpdated', 'statusMessage', 'reason']) {
+                                if (data[k] !== undefined) existing[k] = data[k];
+                            }
                         } else {
                             userRequests.set(mediaId, data);
                         }
@@ -3793,11 +3803,33 @@
             deleted:         ['Removed',           'pending'],
         };
 
+        // Timestamps arrive from D1 as ISO strings. Firestore used to send
+        // {seconds} objects, and several places still reached for `.seconds`
+        // first — which is `undefined` on every D1 row, so `undefined * 1000`
+        // gave NaN and the age checks below silently never fired. That left
+        // requests stuck showing "Pending..." forever and made the My Requests
+        // sort a no-op. This accepts either shape.
+        function tsMillis(v) {
+            if (!v) return 0;
+            if (typeof v === 'object' && typeof v.seconds === 'number') return v.seconds * 1000;
+            const t = new Date(v).getTime();
+            return Number.isFinite(t) ? t : 0;
+        }
+
         // Never show a raw status string to a user. Anything unrecognised becomes
         // a neutral "Working..." rather than leaking an internal identifier.
         function statusLabel(status) {
             return STATUS_LABELS[status] || ['Working...', 'pending'];
         }
+
+        // A request is "in flight" until it reaches a terminal state. Derived from
+        // STATUS_LABELS so it cannot drift: there used to be several hand-written
+        // lists of in-progress statuses that disagreed with each other and with the
+        // backend, so a request that was genuinely `checking` or `searching` was
+        // filed under History instead of In Progress.
+        const TERMINAL_STATUSES = ['completed', 'available', 'already_exists',
+            'not_available', 'error', 'no_storage', 'cancelled', 'deleted'];
+        const isInFlight = (status) => !!status && !TERMINAL_STATUSES.includes(status);
 
         // Build the "Downloading 45% · 12.3 MB/s · 8m left" label.
         // Used for both the user's own card and the global status overlay so the
@@ -4094,6 +4126,11 @@
                 if (!mediaId || userRequests.has(mediaId)) return;
                 // Never reset if item is on Plex
                 if (globalPlexAvailability.has(mediaId)) return;
+                // Never reset a card that someone else's request is currently
+                // driving. This used to blank live "Downloading 42% · 8 MB/s"
+                // labels every 2 minutes until the next poll repainted them,
+                // and would wipe the CAM-only state too.
+                if (globalRequestStatuses.has(mediaId)) return;
                 const btn = card.querySelector('.req-btn');
                 if (btn?.disabled && !btn.classList.contains('pending')) {
                     const type = mediaId.startsWith('tv-') ? 'tv' : 'movie';
@@ -4114,10 +4151,7 @@
             for (const [mediaId, request] of userRequests) {
                 if (ACTIVE_STATUSES.includes(request.status)) continue;
                 // Calculate age from timestamp
-                const ts = request.timestamp?.seconds ? request.timestamp.seconds * 1000
-                         : request.lastUpdated ? new Date(request.lastUpdated).getTime()
-                         : request.timestamp ? new Date(request.timestamp).getTime()
-                         : now;
+                const ts = tsMillis(request.timestamp) || tsMillis(request.lastUpdated) || now;
                 const age = now - ts;
                 if (age > THIRTY_MIN) {
                     console.log(`Clearing stuck status: ${mediaId} (${request.status}, ${Math.round(age / 60000)}min old)`);
@@ -4243,13 +4277,13 @@
 
             for (const [mediaId, req] of userRequests) {
                 const status = req.status;
-                if (['downloading', 'processing', 'approved', 'pending'].includes(status)) {
+                if (isInFlight(status)) {
                     active.push({ mediaId, ...req });
                 } else if (['completed', 'available'].includes(status)) {
                     const completedAt = req.completedAt;
                     let completedTime = 0;
                     if (completedAt) {
-                        completedTime = completedAt.seconds ? completedAt.seconds * 1000 : new Date(completedAt).getTime();
+                        completedTime = tsMillis(completedAt);
                     }
                     if (completedTime && (now - completedTime) < dayMs) {
                         recent.push({ mediaId, ...req });
@@ -4333,7 +4367,7 @@
 
             for (const [mediaId, req] of userRequests) {
                 const item = { mediaId, ...req };
-                if (['downloading', 'processing', 'approved', 'pending'].includes(req.status)) {
+                if (isInFlight(req.status)) {
                     inProgress.push(item);
                 } else {
                     history.push(item);
@@ -4342,8 +4376,8 @@
 
             // Sort: most recent first
             const sortByDate = (a, b) => {
-                const ta = a.requestedAt?.seconds || a.lastUpdated?.seconds || 0;
-                const tb = b.requestedAt?.seconds || b.lastUpdated?.seconds || 0;
+                const ta = tsMillis(a.timestamp) || tsMillis(a.requestedAt) || tsMillis(a.lastUpdated);
+                const tb = tsMillis(b.timestamp) || tsMillis(b.requestedAt) || tsMillis(b.lastUpdated);
                 return tb - ta;
             };
             inProgress.sort(sortByDate);
@@ -4409,7 +4443,7 @@
                     <span class="type-badge req-type-badge ${mediaType === 'tv' ? 'tv' : ''}">${mediaType === 'tv' ? 'TV' : 'Movie'}</span>
                     ${isCam ? '<span class="avail-badge cam-only" title="Only a low-quality CAM copy is available right now">CAM ONLY</span>' : ''}
                     <div class="req-status-overlay">
-                        <span class="status-pill ${status}">${statusLabel}</span>
+                        <span class="status-pill ${status}">${showProgress ? formatDownloadLabel(req) : statusLabel}</span>
                         ${showProgress ? `<div class="req-progress"><div class="req-progress-fill" style="width:${Math.round(progress * 100)}%"></div></div>` : ''}
                     </div>
                 </div>
