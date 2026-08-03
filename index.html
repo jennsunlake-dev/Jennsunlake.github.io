@@ -80,11 +80,21 @@
                 const response = await fetch(`${this.baseUrl}/api/availability/${tmdbId}?type=${type}`);
                 if (!response.ok) throw new Error('Failed to fetch global availability');
                 const backendData = await response.json();
+                // The direct-to-Plex probe above only runs on localhost. Its result
+                // AUGMENTS the backend answer — it must not replace it. This used to
+                // assign `plexAvailability?.available || false` unconditionally, so
+                // on the real site (where that probe never runs) it overwrote the
+                // backend's plexAvailable/plexEpisodes with false/{} — which is what
+                // stopped the episode picker greying out episodes already on Plex.
                 return {
                     ...backendData,
-                    plexAvailable: plexAvailability?.available || false,
+                    plexAvailable: plexAvailability
+                        ? (plexAvailability.available || false)
+                        : (backendData.plexAvailable || false),
                     plexLocation: plexAvailability?.location || null,
-                    plexEpisodes: plexAvailability?.availableEpisodes || {},
+                    plexEpisodes: plexAvailability
+                        ? (plexAvailability.availableEpisodes || {})
+                        : (backendData.plexEpisodes || {}),
                     localPlexCheck: !!plexAvailability
                 };
             }
