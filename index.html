@@ -2118,6 +2118,30 @@
         let globalRequestStatuses = new Map();
         let globalPlexAvailability = new Map();
         let globalAvailabilityCache = new Map();
+
+        // Per-title availability is only needed for the EPISODE-LEVEL data (which
+        // episodes are already on Plex) and for the detail modal. It used to be
+        // fetched once per card during render — 40 cards meant 40 HTTP round-trips
+        // on every page load, while /api/global-plex-availability already returns
+        // all 4,500+ titles in a single call. Badges now come from that feed, and
+        // this fetches the detailed record only when something actually needs it.
+        async function ensureCardAvailability(mediaId, tmdbId, mediaType) {
+            if (globalAvailabilityCache.has(mediaId)) return globalAvailabilityCache.get(mediaId);
+            if (!window.apiClient) return null;
+            try {
+                const data = await window.apiClient.getGlobalAvailability(tmdbId, mediaType);
+                if (data) {
+                    globalAvailabilityCache.set(mediaId, data);
+                    // The episode picker reads these off the card element.
+                    const card = document.querySelector(`.media-card[data-media-id="${mediaId}"]`);
+                    if (card) {
+                        if (data.availableEpisodes) card.dataset.availableEpisodes = JSON.stringify(data.availableEpisodes);
+                        if (data.plexEpisodes) card.dataset.plexEpisodes = JSON.stringify(data.plexEpisodes);
+                    }
+                }
+                return data;
+            } catch (e) { return null; }
+        }
         let userTier = 'STANDARD';
         let weeklyLimit = 5;
         let selectedMedia = null;
@@ -2318,8 +2342,8 @@
             // the modal used to render once on open and then sit frozen, so a
             // download's percentage never moved and a title that finished while
             // you were reading about it still offered a Request button.
-            let globalAvailability = null;
-            try { if (window.apiClient) globalAvailability = await window.apiClient.getGlobalAvailability(item.id, mediaType); } catch (e) {}
+            // One call, cached — reused by the picker if it opens next.
+            const globalAvailability = await ensureCardAvailability(mediaId, item.id, mediaType);
             openDetail = { item, mediaType, mediaId, globalAvailability };
             renderDetailActions();
 
@@ -3100,6 +3124,15 @@
                 if (plexAvail && plexAvail.available && availBadge !== 'partial') {
                     if (mediaType === 'tv') {
                         btnDisabled = false;
+                        // `partial` rides along in the global feed so the grid can
+                        // show it without a per-card request. We have SOME of this
+                        // show, so the action is "request the rest", not "it's here".
+                        if (plexAvail.partial) {
+                            btnText = 'Request Missing Episodes';
+                            btnClass = 'default';
+                            availBadge = 'partial';
+                            return { btnText, btnClass, btnDisabled, statusHTML, availBadge };
+                        }
                         btnText = 'Available on Plex';
                         btnClass = 'available';
                         availBadge = 'on-plex';
@@ -3134,9 +3167,11 @@
             card.dataset.mediaId = mediaId;
 
             const userRequest = userRequests.get(mediaId);
-            let globalAvailability = null;
-            try { if (window.apiClient) globalAvailability = await window.apiClient.getGlobalAvailability(item.id, mediaType); } catch (e) {}
-            if (globalAvailability) globalAvailabilityCache.set(mediaId, globalAvailability);
+            // No per-card network call here. The "On Plex" / CAM badges are decided
+            // from the already-loaded global feeds (loadPopularContent awaits both
+            // before rendering), and the episode-level detail is fetched lazily by
+            // ensureCardAvailability() when the picker or detail modal opens.
+            const globalAvailability = globalAvailabilityCache.get(mediaId) || null;
 
             const { btnText, btnClass, btnDisabled, statusHTML, availBadge } = getStatusInfo(mediaType, userRequest, globalAvailability, mediaId);
 
@@ -3321,7 +3356,14 @@
             updateSelectionSummary();
 
             try {
-                const detailRes = await fetch(`${PROXY_BASE}/tv/${tvId}`);
+                // Fetch the TMDB season list and this show's episode-level Plex
+                // availability together. The availability call used to happen for
+                // every card on the page; it is only actually needed here, where
+                // the picker greys out episodes you already own.
+                const [detailRes] = await Promise.all([
+                    fetch(`${PROXY_BASE}/tv/${tvId}`),
+                    ensureCardAvailability('tv-' + tvId, tvId, 'tv'),
+                ]);
                 const detail = await detailRes.json();
                 tvShowDetails = detail;
                 document.getElementById('modalSubtitle').textContent = `${detail.number_of_seasons} season${detail.number_of_seasons > 1 ? 's' : ''} \u2022 ${detail.number_of_episodes} episodes`;
