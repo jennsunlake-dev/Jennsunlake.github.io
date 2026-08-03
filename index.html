@@ -2997,7 +2997,11 @@
                 if (globalStatus) {
                     const gs = globalStatus.status;
                     if (gs === 'downloading') {
-                        btnText = 'Downloading';
+                        // Show the live percent/speed/ETA here too. This branch used
+                        // to render a bare "Downloading", so the telemetry the backend
+                        // writes every 10s was only ever visible to the requester —
+                        // everyone else saw a static word.
+                        btnText = formatDownloadLabel(globalStatus);
                         btnClass = 'downloading';
                         btnDisabled = true;
                         statusHTML = `<div class="status-info info">Already being downloaded</div>`;
@@ -3987,6 +3991,13 @@
                 statusTimer = setTimeout(async () => {
                     if (!document.hidden) {           // backgrounded tab costs nothing
                         await loadGlobalStatuses();
+                        // Your OWN requests are the source of the live percent/speed
+                        // on your own cards, and this was only ever loaded once at
+                        // sign-in — so the numbers sat frozen at whatever they were
+                        // when you logged in. Refresh them while something is
+                        // actually downloading; skip it otherwise so an idle tab
+                        // doesn't pay for a call whose answer cannot have changed.
+                        if (currentUser && anyDownloading()) await loadUserRequests();
                         refreshAllCardStatuses();
                     }
                     scheduleStatusPoll(anyDownloading() ? STATUS_POLL_ACTIVE_MS : STATUS_POLL_IDLE_MS);
