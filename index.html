@@ -4366,28 +4366,18 @@
             }
         }
 
-        function getActiveAndRecentDownloads() {
-            const now = Date.now();
-            const dayMs = 24 * 60 * 60 * 1000;
+        // "Active Downloads" means exactly that: things still in flight.
+        // Finished items used to linger here for 24 hours showing a checkmark,
+        // which left the section permanently full of things that had already
+        // landed. They remain in My Requests -> History, so nothing is lost —
+        // this strip is now only ever a live view of work in progress, and it
+        // hides itself entirely when nothing is running.
+        function getActiveDownloads() {
             const active = [];
-            const recent = [];
-
             for (const [mediaId, req] of userRequests) {
-                const status = req.status;
-                if (isInFlight(status)) {
-                    active.push({ mediaId, ...req });
-                } else if (['completed', 'available'].includes(status)) {
-                    const completedAt = req.completedAt;
-                    let completedTime = 0;
-                    if (completedAt) {
-                        completedTime = tsMillis(completedAt);
-                    }
-                    if (completedTime && (now - completedTime) < dayMs) {
-                        recent.push({ mediaId, ...req });
-                    }
-                }
+                if (isInFlight(req.status)) active.push({ mediaId, ...req });
             }
-            return { active, recent };
+            return active;
         }
 
         function renderActiveDownloads() {
@@ -4395,8 +4385,8 @@
             const section = document.getElementById('activeDownloadsSection');
             const container = document.getElementById('downloadCards');
             const badge = document.getElementById('activeDownloadsCount');
-            const { active, recent } = getActiveAndRecentDownloads();
-            const all = [...active, ...recent];
+            const active = getActiveDownloads();
+            const all = active;
 
             if (all.length === 0) {
                 section.style.display = 'none';
