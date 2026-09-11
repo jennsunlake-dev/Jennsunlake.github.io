@@ -28,7 +28,7 @@ function createPersianCard(item) {
         const body = document.createElement('div'); body.className = 'card-body';
         const title = document.createElement('div'); title.className = 'card-title'; title.textContent = item.name;
         const detail = document.createElement('div'); detail.className = 'card-year'; detail.textContent = `${item.kind === 'movie' ? 'Movie' : 'TV Show'} · ${item.editions.includes('dubbed') && item.editions.includes('subtitled') ? 'Dubbed + subtitled' : item.edition === 'other' ? 'Available edition' : item.edition === 'dubbed' ? 'Dubbed' : 'Subtitled'}`;
-        const button = document.createElement('button'); button.className = 'req-btn default'; button.textContent = 'Request'; button.addEventListener('click',()=>openPersianTitle(item.id));
+        const button = document.createElement('button'); button.className = 'req-btn default'; button.textContent = item.kind === 'series' ? 'Request Episodes' : 'Request Movie'; button.addEventListener('click',()=>openPersianTitle(item.id));
         const ownRequests = [...userRequests.values()].filter(r => r.provider === 'persian' && r.titleKey === `persian:${item.titleId}`);
         const latest = ownRequests.sort((a,b)=>new Date(b.updatedAt || b.timestamp)-new Date(a.updatedAt || a.timestamp))[0];
         if (latest) {
@@ -38,7 +38,7 @@ function createPersianCard(item) {
             if (item.kind === 'movie' && !['error','cancelled','not_available'].includes(latest.status)) {
                 button.textContent = latest.status === 'available' ? 'Available on Plex' : 'Requested';
                 button.className = `req-btn ${latest.status === 'available' ? 'available' : 'pending'}`; button.disabled = true;
-            } else if (item.kind !== 'movie') button.textContent = 'Request episodes';
+            } else if (item.kind !== 'movie') button.textContent = latest.status === 'available' ? 'Request Missing Episodes' : ['pending','processing','downloading'].includes(latest.status) ? 'Request More Episodes' : 'Request Episodes';
         }
         body.prepend(title,detail); body.append(button); card.append(poster,body); return card;
 }
@@ -236,7 +236,7 @@ function renderPersianSeasonPicker() {
     picker.seasons = seasons;
     tvShowDetails = {seasons:[...seasons].map(([season,eps])=>({season_number:season,episode_count:eps.size}))};
     const total=[...seasons.values()].reduce((sum,eps)=>sum+eps.size,0);
-    document.getElementById('modalSubtitle').textContent = `${seasons.size} season${seasons.size!==1?'s':''} • ${total} episodes${picker.loading?' • Loading episodes…':''}`;
+    document.getElementById('modalSubtitle').textContent = `${seasons.size} season${seasons.size!==1?'s':''} • ${total} episode${total===1?'':'s'}${picker.loading?' • Loading episodes…':''}`;
     content.innerHTML = `<div class="episode-legend">
         <div class="legend-item"><div class="legend-dot default"></div> Available</div>
         <div class="legend-item"><div class="legend-dot selected"></div> Selected</div>
@@ -247,9 +247,8 @@ function renderPersianSeasonPicker() {
         <div class="legend-item"><div class="legend-dot added"></div> Queued</div>
         <div class="legend-item"><div class="legend-dot error"></div> Error</div>
     </div>`;
-    const notice=document.createElement('p');notice.className='modal-subtitle';notice.style.marginBottom='16px';
+    const notice=document.createElement('p');notice.className='modal-subtitle';notice.style.marginTop='16px';
     notice.textContent=picker.item.editions.includes('dubbed')&&picker.item.editions.includes('subtitled')?'Dubbed and subtitled editions are included.':`Available ${picker.item.edition==='other'?'source':picker.item.edition} edition included.`;
-    content.append(notice);
     for(const [season,episodes] of [...seasons].sort((a,b)=>a[0]-b[0])) {
         const group=document.createElement('div');group.className='season-group';group.dataset.season=season;
         const header=document.createElement('div');header.className='season-header';
@@ -263,14 +262,16 @@ function renderPersianSeasonPicker() {
             const classes={available:'available',pending:'ep-pending',approved:'ep-approved',processing:'ep-searching',queued:'ep-added',downloading:'ep-downloading',error:'ep-error',not_available:'ep-error'};
             const labels={available:'On Plex',pending:'Pending',approved:'Approved',processing:'Processing',queued:'Queued',downloading:'DL',error:'Error',not_available:'N/A'};
             const button=document.createElement('button');button.className='ep-btn '+(classes[state] || (state.startsWith('needs')?'ep-error':''));button.dataset.season=season;button.dataset.episode=number;
-            button.classList.toggle('selected',!!selectedEpisodes[season]?.includes(number));button.disabled=picker.submitting;
+            button.dataset.statusClass=classes[state] || (state.startsWith('needs')?'ep-error':'');
+            applyPersianEpisodeSelection(button,!!selectedEpisodes[season]?.includes(number));button.disabled=picker.submitting;
             button.title=title+(labels[state]?' - '+labels[state]:'');button.onclick=()=>toggleEpisode(season,number);
             const num=document.createElement('span');num.className='ep-num';num.textContent='E'+number;
-            const name=document.createElement('span');name.className='ep-title';name.textContent=labels[state]||title;
+            const name=document.createElement('span');name.className='ep-title';name.textContent=labels[state]||`Episode ${number}`;
             button.append(num,name);grid.append(button);
         }
         group.append(grid);content.append(group);updateSelectAllButton(season);
     }
+    content.append(notice);
     updateSelectionSummary();
     document.querySelector('#seasonModal .modal-confirm').disabled=picker.loading||picker.submitting;
 }
@@ -287,9 +288,12 @@ function toggleAllPersianEpisodes(season) {
     if(numbers.every(n=>selectedEpisodes[season]?.includes(n)))delete selectedEpisodes[season];else selectedEpisodes[season]=numbers;
     updatePersianSelectedButtons(season);
 }
+function applyPersianEpisodeSelection(button,selected) {
+    button.className='ep-btn '+(selected?'selected':button.dataset.statusClass || '');
+}
 function updatePersianSelectedButtons(season) {
     document.querySelectorAll(`#seasonModal .ep-btn[data-season="${season}"]`).forEach(button=>{
-        button.classList.toggle('selected',!!selectedEpisodes[season]?.includes(Number(button.dataset.episode)));
+        applyPersianEpisodeSelection(button,!!selectedEpisodes[season]?.includes(Number(button.dataset.episode)));
     });
     updateSelectAllButton(season);updateSelectionSummary();
 }
