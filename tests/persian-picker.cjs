@@ -5,6 +5,8 @@ const assert=require('node:assert/strict');
  page.on('pageerror',e=>errors.push(e.message));
  let failPage=false,failSeason=false;
  await page.route('**/api/persian/episodes/*',async r=>{
+  const id=new URL(r.request().url()).pathname.split('/').pop();
+  if(['60e35edeb59d7702','d89cc7e0b410bdbd'].includes(id))return r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({episodes:(id==='60e35edeb59d7702'?[1]:[1,2]).map(n=>({season:1,number:n,end:n,title:'Ghahveh Shoor E'+n})),nextPage:null})});
   const second=new URL(r.request().url()).searchParams.get('page')==='2';
   await r.fulfill({status:failPage?502:200,contentType:'application/json',body:JSON.stringify(failPage?{error:'Temporary source failure'}:{episodes:second?[{season:2,number:5,end:5,title:'Season 2 Episode 5'}]:[{season:1,number:1,end:2,title:'Show S01E01–E02'},{season:1,number:4,end:4,title:'Show - 4'}],nextPage:second?null:2})});
  });
@@ -26,6 +28,11 @@ const assert=require('node:assert/strict');
  await page.locator('#seasonModal .modal-cancel').click();
  failPage=true;await page.evaluate(()=>persianEpisodeCache.clear());await open();assert.match(await page.locator('#seasonContent').innerText(),/Temporary source failure/);assert.equal(await page.locator('#seasonModal .modal-confirm').isDisabled(),true);
  failPage=false;await page.getByRole('button',{name:'Retry',exact:true}).click();await page.waitForFunction(()=>persianPicker&&!persianPicker.loading&&!persianPicker.error);assert.equal(await page.locator('#seasonModal .ep-btn').count(),4);
+ await page.locator('#seasonModal .modal-cancel').click();
+ await page.evaluate(()=>openPersianTitle('60e35edeb59d7702'));await page.waitForFunction(()=>persianPicker&&!persianPicker.loading);
+ assert.equal(await page.locator('#seasonModal .ep-btn').count(),2);
+ assert.match(await page.locator('#seasonModal [data-episode="1"] .ep-title').innerText(),/Dubbed.*Subtitled/);
+ assert.equal(await page.locator('#seasonModal [data-episode="2"] .ep-title').innerText(),'Subtitled');
  await page.locator('#seasonModal .modal-cancel').click();
  // Ordinary TV still uses its existing data and controls after Persian closes.
  await page.route('**/api/tmdb/tv/99999*',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({number_of_seasons:1,number_of_episodes:2,seasons:[{season_number:1,episode_count:2}],episodes:[{episode_number:1,name:'Pilot'},{episode_number:2,name:'Second'}]})}));
