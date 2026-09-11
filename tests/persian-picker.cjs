@@ -33,6 +33,7 @@ const assert=require('node:assert/strict');
  assert.equal(await page.locator('#seasonModal .ep-btn').count(),2);
  assert.match(await page.locator('#seasonModal [data-episode="1"] .ep-title').innerText(),/Dubbed.*Subtitled/);
  assert.equal(await page.locator('#seasonModal [data-episode="2"] .ep-title').innerText(),'Subtitled');
+ assert.equal(await page.evaluate(()=>persianSelectionSource(persianPicker,1,[1,2])),'d89cc7e0b410bdbd');
  await page.locator('#seasonModal .modal-cancel').click();
  // Ordinary TV still uses its existing data and controls after Persian closes.
  await page.route('**/api/tmdb/tv/99999*',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({number_of_seasons:1,number_of_episodes:2,seasons:[{season_number:1,episode_count:2}],episodes:[{episode_number:1,name:'Pilot'},{episode_number:2,name:'Second'}]})}));
