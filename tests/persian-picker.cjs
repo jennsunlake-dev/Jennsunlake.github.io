@@ -1,0 +1,37 @@
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE || '/tmp/tv-shelf-browser-check/node_modules/playwright');
+const assert=require('node:assert/strict');
+(async()=>{const browser=await chromium.launch({headless:true,channel:'chrome'});try{
+ const page=await browser.newPage({viewport:{width:1280,height:950}}),errors=[],posts=[];
+ page.on('pageerror',e=>errors.push(e.message));
+ let failPage=false,failSeason=false;
+ await page.route('**/api/persian/episodes/*',async r=>{
+  const second=new URL(r.request().url()).searchParams.get('page')==='2';
+  await r.fulfill({status:failPage?502:200,contentType:'application/json',body:JSON.stringify(failPage?{error:'Temporary source failure'}:{episodes:second?[{season:2,number:5,end:5,title:'Season 2 Episode 5'}]:[{season:1,number:1,end:2,title:'Show S01E01–E02'},{season:1,number:4,end:4,title:'Show - 4'}],nextPage:second?null:2})});
+ });
+ await page.route('**/api/requests',async r=>{if(r.request().method()!=='POST')return r.continue();const body=r.request().postDataJSON();posts.push(body);await r.fulfill({status:failSeason&&body.season===2?503:201,contentType:'application/json',body:JSON.stringify({message:failSeason&&body.season===2?'Try again':'Submitted'})});});
+ await page.goto(process.env.PICKER_URL || 'http://127.0.0.1:8878/');await page.waitForFunction(()=>window.apiClient);await page.evaluate(()=>checkSavedSession());
+ await page.getByRole('button',{name:'Persian',exact:true}).click();await page.waitForFunction(()=>document.querySelector('#persianTVGrid .media-card'));
+ const open=async()=>{await page.evaluate(()=>openPersianTitle('32aafcf4fc52c9ad'));await page.waitForFunction(()=>persianPicker&&!persianPicker.loading);};
+ await open();assert.equal(await page.locator('#seasonModal').evaluate(e=>e.classList.contains('active')),true);assert.equal(await page.locator('#persianDialog').evaluate(e=>e.open),false);
+ assert.equal(await page.locator('#seasonModal .season-group').count(),2);assert.equal(await page.locator('#seasonModal .ep-btn').count(),4);assert.equal(await page.locator('#seasonModal [data-episode="3"]').count(),0);
+ await page.locator('#seasonModal .season-select-btn').first().click();assert.equal(await page.locator('#seasonModal .ep-btn.selected').count(),3);
+ await page.locator('#seasonModal .season-select-btn').first().click();assert.equal(await page.locator('#seasonModal .ep-btn.selected').count(),0);
+ await page.locator('#seasonModal [data-season="1"][data-episode="4"]').click();await page.locator('#seasonModal [data-season="2"][data-episode="5"]').click();
+ failSeason=true;await page.locator('#seasonModal .modal-confirm').click();await page.waitForFunction(()=>persianPicker&&!persianPicker.submitting);
+ assert.deepEqual(posts.map(p=>[p.season,p.episodes]),[[1,[4]],[2,[5]]]);assert.deepEqual(await page.evaluate(()=>selectedEpisodes),{'2':[5]});
+ failSeason=false;await page.locator('#seasonModal .modal-confirm').click();await page.waitForFunction(()=>!persianPicker);assert.deepEqual(posts.map(p=>p.season),[1,2,2]);
+ await page.evaluate(()=>{const item=persianItems.find(i=>i.id==='32aafcf4fc52c9ad');userRequests.set('status-test',{provider:'persian',titleKey:'persian:'+item.titleId,scope:'episodes',season:1,episodes:[4],status:'available',updatedAt:new Date(Date.now()+10000).toISOString(),persianEditions:[{episodes:[{season:1,number:4,status:'available'}]}]});});
+ await open();assert.equal(await page.locator('#seasonModal [data-season="1"][data-episode="4"]').evaluate(e=>e.classList.contains('available')),true);
+ await page.setViewportSize({width:390,height:844});await page.waitForTimeout(400);await page.screenshot({path:process.env.PICKER_SCREENSHOT || '/tmp/notflix-persian-picker-mobile.png'});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false);
+ await page.locator('#seasonModal .modal-cancel').click();
+ failPage=true;await page.evaluate(()=>persianEpisodeCache.clear());await open();assert.match(await page.locator('#seasonContent').innerText(),/Temporary source failure/);assert.equal(await page.locator('#seasonModal .modal-confirm').isDisabled(),true);
+ failPage=false;await page.getByRole('button',{name:'Retry',exact:true}).click();await page.waitForFunction(()=>persianPicker&&!persianPicker.loading&&!persianPicker.error);assert.equal(await page.locator('#seasonModal .ep-btn').count(),4);
+ await page.locator('#seasonModal .modal-cancel').click();
+ // Ordinary TV still uses its existing data and controls after Persian closes.
+ await page.route('**/api/tmdb/tv/99999*',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({number_of_seasons:1,number_of_episodes:2,seasons:[{season_number:1,episode_count:2}],episodes:[{episode_number:1,name:'Pilot'},{episode_number:2,name:'Second'}]})}));
+ await page.route('**/api/tmdb/tv/99999/season/1*',r=>r.fulfill({status:200,contentType:'application/json',body:JSON.stringify({episodes:[{episode_number:1,name:'Pilot'},{episode_number:2,name:'Second'}]})}));
+ await page.evaluate(async()=>{selectedMedia={id:99999,name:'Ordinary fixture'};await showSeasonSelector(99999);});
+ assert.equal(await page.evaluate(()=>persianPicker),null);assert.equal(await page.locator('#seasonModal .ep-btn').count(),2);await page.locator('#seasonModal .ep-btn').first().click();assert.deepEqual(await page.evaluate(()=>selectedEpisodes),{'1':[1]});
+ assert.deepEqual(errors,[]);assert(posts.every(p=>p.provider==='persian'&&p.scope==='episodes'&&p.catalogId==='32aafcf4fc52c9ad'));
+ console.log('PASS: shared TV modal, pagination, combined episodes, gaps, select/deselect all, multi-season submission, partial-failure retry, Plex status, mobile, source-error retry, ordinary TV regression. All POSTs intercepted.');
+}finally{await browser.close();}})().catch(e=>{console.error(e);process.exit(1)});
