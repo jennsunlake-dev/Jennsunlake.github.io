@@ -3561,7 +3561,7 @@
         function toggleAllEpisodes(seasonNum) {
             if (persianPicker) return toggleAllPersianEpisodes(seasonNum);
             const epBtns = Array.from(document.querySelectorAll(`[data-season="${seasonNum}"][data-episode]`));
-            const allSelected = selectedEpisodes[seasonNum] && selectedEpisodes[seasonNum].length === epBtns.length;
+            const allSelected = !!selectedEpisodes[seasonNum] && selectedEpisodes[seasonNum].length === epBtns.length;
 
             if (allSelected) {
                 delete selectedEpisodes[seasonNum];
@@ -3598,7 +3598,7 @@
             if (!group) return;
             const btn = group.querySelector('.season-select-btn');
             const epBtns = group.querySelectorAll('[data-episode]');
-            const allSelected = selectedEpisodes[seasonNum] && selectedEpisodes[seasonNum].length === epBtns.length;
+            const allSelected = !!selectedEpisodes[seasonNum] && selectedEpisodes[seasonNum].length === epBtns.length;
             btn.textContent = allSelected ? 'Deselect All' : 'Select All';
             btn.classList.toggle('active', allSelected);
         }
@@ -4716,6 +4716,6 @@
         }
     </script>
     <script src="persian-search.js"></script>
-    <script src="persian.js"></script>
+    <script src="persian.js?v=20260911-picker2"></script>
 </body>
 </html>
