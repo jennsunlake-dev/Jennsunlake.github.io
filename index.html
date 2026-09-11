@@ -3403,6 +3403,8 @@
 
         // ===== EPISODE SELECTOR =====
         async function showSeasonSelector(tvId) {
+            persianPicker = null;
+            document.querySelector('#seasonModal .modal-confirm').disabled = false;
             const modal = document.getElementById('seasonModal');
             modal.classList.add('active');
             selectedEpisodes = {};
@@ -3526,6 +3528,7 @@
         }
 
         function toggleEpisode(seasonNum, epNum) {
+            if (persianPicker) return togglePersianEpisode(seasonNum, epNum);
             if (!selectedEpisodes[seasonNum]) selectedEpisodes[seasonNum] = [];
             const idx = selectedEpisodes[seasonNum].indexOf(epNum);
             const btn = document.querySelector(`[data-season="${seasonNum}"][data-episode="${epNum}"]`);
@@ -3556,6 +3559,7 @@
         }
 
         function toggleAllEpisodes(seasonNum) {
+            if (persianPicker) return toggleAllPersianEpisodes(seasonNum);
             const epBtns = Array.from(document.querySelectorAll(`[data-season="${seasonNum}"][data-episode]`));
             const allSelected = selectedEpisodes[seasonNum] && selectedEpisodes[seasonNum].length === epBtns.length;
 
@@ -3619,6 +3623,8 @@
         }
 
         function closeSeasonModal() {
+            persianPicker = null;
+            document.querySelector('#seasonModal .modal-confirm').disabled = false;
             document.getElementById('seasonModal').classList.remove('active');
             selectedEpisodes = {};
             selectedMedia = null;
@@ -3626,6 +3632,7 @@
         }
 
         async function confirmRequest() {
+            if (persianPicker) return confirmPersianEpisodes();
             if (Object.keys(selectedEpisodes).length === 0) {
                 showToast('Please select at least one episode', 'error');
                 return;
@@ -3834,7 +3841,7 @@
                 setTimeout(() => {
                     for (const [mediaId] of userRequests) updateMediaCardDisplay(mediaId);
                     renderActiveDownloads();
-                    if (document.getElementById('persianDialog').open) renderPersianEpisodeStatus();
+                    if (document.getElementById('persianDialog').open || persianPicker) renderPersianEpisodeStatus();
                 }, 1000);
             } catch (e) { console.error('Error loading requests:', e); }
         }

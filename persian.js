@@ -43,7 +43,7 @@ function createPersianCard(item) {
         body.prepend(title,detail); body.append(button); card.append(poster,body); return card;
 }
 function renderPersianCatalog() {
-    if (document.getElementById('persianDialog').open) renderPersianEpisodeStatus();
+    if (document.getElementById('persianDialog').open || persianPicker) renderPersianEpisodeStatus();
     const query = document.getElementById('persianSearch').value;
     const grouped = new Map();
     for (const item of persianItems) {
@@ -73,6 +73,7 @@ function openPersianTitle(id, request) {
     persianSelected = persianItems.find(item => item.id === id);
     if (!persianSelected) return showToast('This Persian title is no longer listed.','error');
     const item = persianSelected;
+    if (item.kind === 'series') return openPersianSeasonPicker(item);
     document.getElementById('persianTitle').textContent = item.name;
     document.getElementById('persianEditionNotice').textContent = item.editions.includes('dubbed') && item.editions.includes('subtitled') ? 'Both Persian dubbed and subtitled editions will be requested. Saved files are skipped.' : item.edition === 'other' ? 'The available source edition will be requested. Any explicitly paired dubbed/subtitled edition is included automatically.' : `The catalog currently lists ${item.edition} only. Any available paired edition is included automatically.`;
     document.getElementById('persianEpisodeFields').hidden = item.kind === 'movie';
@@ -142,6 +143,7 @@ function persianStatusText(req) {
     return label+(req.status==='downloading'? ' · '+percent+'%':'')+(req.statusMessage?' — '+req.statusMessage:'');
 }
 function renderPersianEpisodeStatus() {
+    if (persianPicker) renderPersianSeasonPicker();
     const target=document.getElementById('persianEpisodeStatus');target.replaceChildren();
     if(!persianSelected)return;
     const requests=[...userRequests.values()].filter(r=>r.provider==='persian'&&r.titleKey==='persian:'+persianSelected.titleId).sort((a,b)=>new Date(b.timestamp)-new Date(a.timestamp));
@@ -157,5 +159,163 @@ function renderPersianEpisodeStatus() {
             }
             target.append(details);
         }
+    }
+}
+
+// Persian TV uses the same modal, CSS and controls as the ordinary TV picker.
+let persianPicker = null;
+const persianEpisodeCache = new Map();
+async function openPersianSeasonPicker(item) {
+    const picker = persianPicker = {item, rows:[], loading:true, submitting:false, error:''};
+    selectedMedia = null; selectedEpisodes = {}; tvShowDetails = null;
+    document.getElementById('seasonModal').classList.add('active');
+    document.getElementById('modalTitle').textContent = item.name;
+    document.getElementById('modalSubtitle').textContent = 'Loading episodes…';
+    document.getElementById('seasonContent').innerHTML = '<div class="loading-state"><div class="spinner"></div><p>Loading episodes...</p></div>';
+    document.querySelector('#seasonModal .modal-confirm').disabled = true;
+    updateSelectionSummary();
+    try {
+        const cached = persianEpisodeCache.get(item.id);
+        if (cached && Date.now()-cached.time < 300000) picker.rows = cached.rows;
+        else {
+            let page = 1;
+            while (page) {
+                const response = await fetch(`${window.apiClient.baseUrl}/api/persian/episodes/${item.id}?page=${page}`, {headers:window.apiClient._authHeaders()});
+                if (persianPicker !== picker) return;
+                if (window.apiClient._handleAuthError(response)) { closeSeasonModal(); return; }
+                const data = await response.json();
+                if (!response.ok) throw Error(data.error || 'Episodes unavailable.');
+                picker.rows.push(...data.episodes);
+                page = data.nextPage;
+                renderPersianSeasonPicker();
+            }
+            persianEpisodeCache.set(item.id, {time:Date.now(), rows:picker.rows});
+        }
+        picker.loading = false;
+    } catch(error) { picker.loading = false; picker.error = error.message; }
+    if (persianPicker === picker) renderPersianSeasonPicker();
+}
+function persianEpisodeState(season, number) {
+    const requests = [...userRequests.values()].filter(r => r.provider === 'persian' && r.titleKey === 'persian:'+persianPicker.item.titleId)
+        .sort((a,b)=>new Date(b.updatedAt || b.timestamp)-new Date(a.updatedAt || a.timestamp));
+    for (const req of requests) {
+        if (req.status === 'cancelled') continue;
+        const episodeRows = (req.persianEditions || []).flatMap(e=>e.episodes || []).filter(e => Number(e.season ?? 1) === season && e.number <= number && (e.end || e.number) >= number);
+        if (episodeRows.length) {
+            // A title is on Plex only once every requested edition is ready.
+            if (episodeRows.every(e=>e.status === 'available') && req.status === 'available') return 'available';
+            const unfinished = episodeRows.find(e=>e.status !== 'available');
+            return unfinished ? String(unfinished.status).toLowerCase() : req.status;
+        }
+        const matches = req.scope === 'all' || (Number(req.season) === season && (
+            req.scope === 'season' || req.scope === 'episodes' && req.episodes?.includes(number) || req.scope === 'range' && number >= req.first && number <= req.last));
+        if (matches && req.status !== 'available') return req.status;
+    }
+    return '';
+}
+function renderPersianSeasonPicker() {
+    const picker = persianPicker; if (!picker) return;
+    const content = document.getElementById('seasonContent');
+    if (picker.error) {
+        content.replaceChildren();
+        const box=document.createElement('div');box.className='empty-state';
+        const title=document.createElement('h3');title.textContent='Episodes unavailable';
+        const message=document.createElement('p');message.textContent=picker.error;
+        const retry=document.createElement('button');retry.className='section-btn';retry.textContent='Retry';retry.onclick=()=>openPersianSeasonPicker(picker.item);
+        box.append(title,message,retry);content.append(box);
+        document.querySelector('#seasonModal .modal-confirm').disabled=true;
+        return;
+    }
+    const seasons = new Map();
+    for (const row of picker.rows) {
+        if (!seasons.has(row.season)) seasons.set(row.season,new Map());
+        // Source files can combine multiple episodes; both buttons refer to the
+        // same download, which the provider deduplicates by source URL.
+        for (let n=row.number;n<=row.end;n++) seasons.get(row.season).set(n,row.title);
+    }
+    picker.seasons = seasons;
+    tvShowDetails = {seasons:[...seasons].map(([season,eps])=>({season_number:season,episode_count:eps.size}))};
+    const total=[...seasons.values()].reduce((sum,eps)=>sum+eps.size,0);
+    document.getElementById('modalSubtitle').textContent = `${seasons.size} season${seasons.size!==1?'s':''} • ${total} episodes${picker.loading?' • Loading episodes…':''}`;
+    content.innerHTML = `<div class="episode-legend">
+        <div class="legend-item"><div class="legend-dot default"></div> Available</div>
+        <div class="legend-item"><div class="legend-dot selected"></div> Selected</div>
+        <div class="legend-item"><div class="legend-dot available"></div> On Plex</div>
+        <div class="legend-item"><div class="legend-dot requested"></div> Pending</div>
+        <div class="legend-item"><div class="legend-dot approved"></div> Approved</div>
+        <div class="legend-item"><div class="legend-dot downloading"></div> Downloading</div>
+        <div class="legend-item"><div class="legend-dot added"></div> Queued</div>
+        <div class="legend-item"><div class="legend-dot error"></div> Error</div>
+    </div>`;
+    const notice=document.createElement('p');notice.className='modal-subtitle';notice.style.marginBottom='16px';
+    notice.textContent=picker.item.editions.includes('dubbed')&&picker.item.editions.includes('subtitled')?'Dubbed and subtitled editions are included.':`Available ${picker.item.edition==='other'?'source':picker.item.edition} edition included.`;
+    content.append(notice);
+    for(const [season,episodes] of [...seasons].sort((a,b)=>a[0]-b[0])) {
+        const group=document.createElement('div');group.className='season-group';group.dataset.season=season;
+        const header=document.createElement('div');header.className='season-header';
+        const label=document.createElement('span');label.className='season-label';label.textContent=`Season ${season} `;
+        const count=document.createElement('span');count.style.cssText='color:var(--text-muted);font-weight:400;font-size:0.8rem;';count.textContent=`(${episodes.size} eps)`;label.append(count);
+        const all=document.createElement('button');all.className='season-select-btn';all.textContent='Select All';all.onclick=()=>toggleAllEpisodes(season);all.disabled=picker.loading||picker.submitting;
+        header.append(label,all);group.append(header);
+        const grid=document.createElement('div');grid.className='episode-grid';
+        for(const [number,title] of [...episodes].sort((a,b)=>a[0]-b[0])) {
+            const state=persianEpisodeState(season,number);
+            const classes={available:'available',pending:'ep-pending',approved:'ep-approved',processing:'ep-searching',queued:'ep-added',downloading:'ep-downloading',error:'ep-error',not_available:'ep-error'};
+            const labels={available:'On Plex',pending:'Pending',approved:'Approved',processing:'Processing',queued:'Queued',downloading:'DL',error:'Error',not_available:'N/A'};
+            const button=document.createElement('button');button.className='ep-btn '+(classes[state] || (state.startsWith('needs')?'ep-error':''));button.dataset.season=season;button.dataset.episode=number;
+            button.classList.toggle('selected',!!selectedEpisodes[season]?.includes(number));button.disabled=picker.submitting;
+            button.title=title+(labels[state]?' - '+labels[state]:'');button.onclick=()=>toggleEpisode(season,number);
+            const num=document.createElement('span');num.className='ep-num';num.textContent='E'+number;
+            const name=document.createElement('span');name.className='ep-title';name.textContent=labels[state]||title;
+            button.append(num,name);grid.append(button);
+        }
+        group.append(grid);content.append(group);updateSelectAllButton(season);
+    }
+    updateSelectionSummary();
+    document.querySelector('#seasonModal .modal-confirm').disabled=picker.loading||picker.submitting;
+}
+function togglePersianEpisode(season,number) {
+    if (persianPicker.submitting) return;
+    const eps = new Set(selectedEpisodes[season] || []);
+    eps.has(number)?eps.delete(number):eps.add(number);
+    if(eps.size)selectedEpisodes[season]=[...eps];else delete selectedEpisodes[season];
+    updatePersianSelectedButtons(season);
+}
+function toggleAllPersianEpisodes(season) {
+    if (persianPicker.loading || persianPicker.submitting) return;
+    const numbers=[...persianPicker.seasons.get(season).keys()];
+    if(numbers.every(n=>selectedEpisodes[season]?.includes(n)))delete selectedEpisodes[season];else selectedEpisodes[season]=numbers;
+    updatePersianSelectedButtons(season);
+}
+function updatePersianSelectedButtons(season) {
+    document.querySelectorAll(`#seasonModal .ep-btn[data-season="${season}"]`).forEach(button=>{
+        button.classList.toggle('selected',!!selectedEpisodes[season]?.includes(Number(button.dataset.episode)));
+    });
+    updateSelectAllButton(season);updateSelectionSummary();
+}
+async function confirmPersianEpisodes() {
+    const picker=persianPicker;
+    if(!picker || picker.loading || picker.submitting || picker.error)return;
+    const selections=Object.entries(selectedEpisodes).filter(([,eps])=>eps.length);
+    if(!selections.length)return showToast('Please select at least one episode','error');
+    if(selections.some(([,eps])=>eps.length>500))return showToast('Choose up to 500 episodes per season','error');
+    picker.submitting=true;renderPersianSeasonPicker();
+    try {
+        for(const [season,episodes] of selections) {
+            const response=await fetch(`${window.apiClient.baseUrl}/api/requests`,{method:'POST',headers:window.apiClient._authHeaders(),body:JSON.stringify({provider:'persian',catalogId:picker.item.id,scope:'episodes',season:Number(season),episodes:[...episodes].sort((a,b)=>a-b)})});
+            if(window.apiClient._handleAuthError(response))return;
+            const result=await response.json();
+            if(!response.ok && response.status!==409)throw Error(result.message || result.error || 'Request failed.');
+            // Preserve unsubmitted selections after a partial failure; retrying
+            // must not resubmit a season that already succeeded.
+            if(persianPicker===picker)delete selectedEpisodes[season];
+        }
+        if(persianPicker===picker)closeSeasonModal();
+        showToast('Episode requests submitted');
+    } catch(error) {showToast(error.message,'error');}
+    finally {
+        picker.submitting=false;
+        await loadUserRequests();loadGlobalStatuses();
+        if(persianPicker===picker)renderPersianSeasonPicker();
     }
 }
