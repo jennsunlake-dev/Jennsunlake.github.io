@@ -194,7 +194,7 @@ async function openPersianSeasonPicker(item) {
                     }
                     if(persianPicker!==picker)return;
                     picker.unnumberedTitles.push(...(data.unnumberedTitles||[]));
-                    picker.rows.push(...data.episodes.map(row=>({...row,edition:edition.edition})));
+                    picker.rows.push(...data.episodes.map(row=>({...row,edition:edition.edition,catalogId:edition.id})));
                     page=data.nextPage;
                     renderPersianSeasonPicker();
                 }
@@ -270,7 +270,7 @@ function renderPersianSeasonPicker() {
         <div class="legend-item"><div class="legend-dot error"></div> Error</div>
     </div>`;
     const notice=document.createElement('p');notice.className='modal-subtitle';notice.style.marginTop='16px';
-    notice.textContent=picker.item.editions.includes('dubbed')&&picker.item.editions.includes('subtitled')?'Both editions are included where released. Each episode shows which editions are currently listed.':`Available ${picker.item.edition==='other'?'source':picker.item.edition} edition included.`;
+    notice.textContent=picker.item.editions.includes('dubbed')&&picker.item.editions.includes('subtitled')?'Both editions are included where released. Each episode shows which editions are currently listed.':picker.item.editions.length>1?'Available editions are shown for each episode.':`Available ${picker.item.edition==='other'?'source':picker.item.edition} edition included.`;
     for(const [season,episodes] of [...seasons].sort((a,b)=>a[0]-b[0])) {
         const group=document.createElement('div');group.className='season-group';group.dataset.season=season;
         const header=document.createElement('div');header.className='season-header';
@@ -320,6 +320,16 @@ function updatePersianSelectedButtons(season) {
     });
     updateSelectAllButton(season);updateSelectionSummary();
 }
+function persianSelectionSource(picker,season,episodes) {
+    const coverage=new Map();
+    for(const row of picker.rows) {
+        if(row.season!==season)continue;
+        const id=row.catalogId||picker.item.id;
+        if(!coverage.has(id))coverage.set(id,new Set());
+        for(const n of episodes)if(row.number<=n&&row.end>=n)coverage.get(id).add(n);
+    }
+    return [...coverage].sort((a,b)=>b[1].size-a[1].size || Number(b[0]===picker.item.id)-Number(a[0]===picker.item.id))[0]?.[0]||picker.item.id;
+}
 async function confirmPersianEpisodes() {
     const picker=persianPicker;
     if(!picker || picker.loading || picker.submitting || picker.error)return;
@@ -329,7 +339,7 @@ async function confirmPersianEpisodes() {
     picker.submitting=true;renderPersianSeasonPicker();
     try {
         for(const [season,episodes] of selections) {
-            const response=await fetch(`${window.apiClient.baseUrl}/api/requests`,{method:'POST',headers:window.apiClient._authHeaders(),body:JSON.stringify({provider:'persian',catalogId:picker.item.id,scope:'episodes',season:Number(season),episodes:[...episodes].sort((a,b)=>a-b)})});
+            const response=await fetch(`${window.apiClient.baseUrl}/api/requests`,{method:'POST',headers:window.apiClient._authHeaders(),body:JSON.stringify({provider:'persian',catalogId:persianSelectionSource(picker,Number(season),episodes),scope:'episodes',season:Number(season),episodes:[...episodes].sort((a,b)=>a-b)})});
             if(window.apiClient._handleAuthError(response))return;
             const result=await response.json();
             if(!response.ok && response.status!==409)throw Error(result.message || result.error || 'Request failed.');
