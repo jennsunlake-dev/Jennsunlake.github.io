@@ -21,7 +21,7 @@
                 // Cloudflare Worker + D1. Replaced Vercel + Firestore, whose
                 // per-document-read pricing was the reason for the migration.
                 // Routes, payloads and auth tokens are unchanged.
-                this.baseUrl = 'https://notflix-api.dayhill12.workers.dev';
+                this.baseUrl = ['localhost', '127.0.0.1'].includes(location.hostname) ? location.origin : 'https://notflix-api.dayhill12.workers.dev';
                 this.currentUser = null;
                 this.idToken = null;
                 this.userToken = localStorage.getItem('notflix_user_token') || null;
@@ -1873,6 +1873,18 @@
             .stat-value { font-size: 20px; }
             .download-card .dl-poster { width: 36px; height: 54px; }
         }
+        .persian-search-wrap { margin:24px 0 16px; max-width:620px; }
+        .persian-search-wrap label { display:block; margin-bottom:8px; color:var(--text-secondary); }
+        #persianSearch { width:100%; padding:14px 16px; border:1px solid var(--border-subtle); border-radius:10px; background:var(--bg-card); color:var(--text-primary); font:inherit; }
+        #persianSearch:focus { outline:2px solid var(--accent-primary,#e50914); outline-offset:2px; }
+        #persianSection .card-title { display:block; -webkit-line-clamp:unset; overflow:visible; }
+        #persianSection .card-body { display:flex; flex-direction:column; gap:6px; }
+        #persianSection .card-body .req-btn { margin-top:auto; }
+        #persianSection .section-head { flex-wrap:wrap; gap:12px; }
+        #persianSection .section-head span { color:var(--text-secondary); font-size:0.85rem; }
+        .persian-load-more { display:block; margin:24px auto 0; }
+        .persian-load-more[hidden] { display:none; }
+        #persianSection .poster-wrap img { width:100%; height:100%; object-fit:cover; }
     </style>
 </head>
 <body>
@@ -1923,6 +1935,7 @@
             <!-- View Tabs -->
             <div class="view-tabs" id="viewTabs">
                 <button class="view-tab active" data-view="home" onclick="switchView('home')">Home</button>
+                <button class="view-tab" data-view="persian" onclick="switchView('persian')">Persian</button>
                 <button class="view-tab" data-view="my-requests" onclick="switchView('my-requests')">My Requests</button>
             </div>
 
@@ -1949,6 +1962,41 @@
                 <div id="requestsList" class="media-grid"></div>
             </div>
 
+            <section class="section" id="persianSection" style="display:none">
+                <div class="section-head"><h2 class="section-title">Persian Movies &amp; TV Shows</h2></div>
+                <p>Both dubbed and subtitled editions when available, with cover art in Plex.</p>
+                <div class="persian-search-wrap">
+                    <label for="persianSearch">Search in English or فارسی</label>
+                    <input id="persianSearch" type="search" dir="auto" placeholder="Search titles · جستجوی فیلم و سریال" aria-label="Search Persian titles">
+                </div>
+                <p id="persianMessage" role="status" aria-live="polite"></p>
+                <section class="section" aria-labelledby="persianMoviesHeading">
+                    <div class="section-head"><h2 class="section-title" id="persianMoviesHeading">Persian Movies</h2><span id="persianMoviesCount"></span></div>
+                    <div class="media-grid" id="persianMoviesGrid"></div>
+                    <button id="persianMoviesMore" class="section-btn persian-load-more" type="button">Load More Movies</button>
+                </section>
+                <section class="section" aria-labelledby="persianTVHeading">
+                    <div class="section-head"><h2 class="section-title" id="persianTVHeading">Persian TV Shows</h2><span id="persianTVCount"></span></div>
+                    <div class="media-grid" id="persianTVGrid"></div>
+                    <button id="persianTVMore" class="section-btn persian-load-more" type="button">Load More TV Shows</button>
+                </section>
+            </section>
+            <dialog id="persianDialog" style="background:var(--bg-secondary,#181818);color:var(--text-primary);margin:auto;border:1px solid #555;border-radius:12px;max-width:540px;width:90%;padding:28px">
+                <form id="persianForm">
+                    <h2 id="persianTitle"></h2><p id="persianEditionNotice"></p>
+                    <p>Movies go to Persian Movies. Shows go to Persian TV Shows. Cover art is included.</p>
+                    <div id="persianEpisodeFields">
+                        <label>Episodes <select id="persianScope" class="section-btn"><option value="latest">Latest episode</option><option value="season">Whole season</option><option value="episodes">Specific episodes</option><option value="range">Episode range</option><option value="all">All episodes</option></select></label>
+                        <div id="persianSeasonField" hidden style="margin-top:16px"><label>Season <input id="persianSeason" type="number" min="0" max="999" value="1" style="width:90px"></label></div>
+                        <div id="persianEpisodesField" hidden style="margin-top:16px"><label>Episode numbers <input id="persianEpisodes" type="text" placeholder="1, 3, 5" style="max-width:100%"></label><p>Select one or more episodes with comma-separated numbers.</p></div>
+                        <div id="persianRange" hidden style="margin-top:16px"><label>First <input id="persianFirst" type="number" min="1" max="99999" value="1" style="width:90px"></label> <label>Last <input id="persianLast" type="number" min="1" max="99999" value="1" style="width:90px"></label></div>
+                        <p>Season and episode numbers follow the source. Shows without season labels use Season 1. Different editions may have different cuts; unlisted selections will show an error.</p>
+                    </div>
+                    <div id="persianEpisodeStatus" style="max-height:240px;overflow:auto"></div>
+                    <p id="persianRequestMessage" role="status"></p>
+                    <div class="section-actions"><button type="submit" id="persianSubmit" class="req-btn default">Request both available editions</button> <button type="button" id="persianClose" class="section-btn">Close</button></div>
+                </form>
+            </dialog>
             <!-- Movies Section -->
             <div class="section" id="moviesSection">
                 <div class="section-head">
@@ -2887,6 +2935,7 @@
             setTimeout(async () => {
                 await loadGlobalStatuses();
                 await loadGlobalPlexAvailability();
+                if (currentUser) { await loadUserRequests(); if (currentView === 'my-requests') renderMyRequestsView(); if (currentView === 'persian') renderPersianCatalog(); }
                 refreshAllCardStatuses();
                 startGlobalStatusPolling();
             }, 1000);
@@ -3738,8 +3787,8 @@
                 const response = await window.apiClient.getUserRequests(currentUser.id);
                 const requests = response.requests || [];
                 requests.forEach(data => {
-                    const mediaId = data.mediaType + '-' + data.tmdbId;
-                    if (data.mediaType === 'tv') {
+                    const mediaId = data.provider === 'persian' ? 'persian-' + data.id : data.mediaType + '-' + data.tmdbId;
+                    if (data.mediaType === 'tv' && data.provider !== 'persian') {
                         // Build per-episode statuses from each individual request
                         applyEpisodeStatuses(mediaId, data);
                         // Merge episodes into combined view for card display
@@ -3781,9 +3830,11 @@
                         }
                     }
                 });
+                if (currentView === 'persian') renderPersianCatalog();
                 setTimeout(() => {
                     for (const [mediaId] of userRequests) updateMediaCardDisplay(mediaId);
                     renderActiveDownloads();
+                    if (document.getElementById('persianDialog').open) renderPersianEpisodeStatus();
                 }, 1000);
             } catch (e) { console.error('Error loading requests:', e); }
         }
@@ -4246,7 +4297,7 @@
             const THIRTY_MIN = 30 * 60 * 1000;
             let cleared = 0;
             for (const [mediaId, request] of userRequests) {
-                if (ACTIVE_STATUSES.includes(request.status)) continue;
+                if (request.provider === 'persian' || ACTIVE_STATUSES.includes(request.status)) continue;
                 // Calculate age from timestamp
                 const ts = tsMillis(request.timestamp) || tsMillis(request.lastUpdated) || now;
                 const age = now - ts;
@@ -4344,6 +4395,15 @@
             const myReqView = document.getElementById('myRequestsView');
             const activeDl = document.getElementById('activeDownloadsSection');
 
+            document.getElementById('searchSection').style.display = view === 'persian' ? 'none' : 'block';
+            document.getElementById('persianSection').style.display = view === 'persian' ? 'block' : 'none';
+            if (view === 'persian') {
+                homeElements.forEach(id => document.getElementById(id).style.display = 'none');
+                myReqView.classList.remove('visible');
+                if (activeDl) activeDl.style.display = 'none';
+                loadPersianCatalog();
+                return;
+            }
             if (view === 'home') {
                 homeElements.forEach(id => {
                     const el = document.getElementById(id);
@@ -4388,7 +4448,10 @@
             const active = getActiveDownloads();
             const all = active;
 
-            if (all.length === 0) {
+            if (active.length === 0) {
+                container.replaceChildren();
+                badge.textContent = '';
+                badge.style.display = 'none';
                 section.style.display = 'none';
                 return;
             }
@@ -4397,9 +4460,9 @@
             badge.textContent = active.length || '';
             badge.style.display = active.length > 0 ? 'inline' : 'none';
 
-            container.innerHTML = all.map(req => {
+            container.innerHTML = active.map(req => {
                 const poster = req.posterPath
-                    ? `https://image.tmdb.org/t/p/w92${req.posterPath}`
+                    ? requestPosterUrl(req, 'w92')
                     : '';
                 const title = req.title || req.name || 'Unknown';
                 const progress = req.progress || 0;
@@ -4508,7 +4571,7 @@
             const title = req.title || req.name || 'Unknown';
             const poster = req.posterPath || req.poster_path;
             const posterUrl = poster
-                ? `https://image.tmdb.org/t/p/w500${poster}`
+                ? requestPosterUrl({...req,posterPath:poster}, 'w500')
                 : `data:image/svg+xml;charset=utf-8,${encodeURIComponent(`<svg width="300" height="450" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="450" fill="#181818"/><text x="150" y="225" font-family="Arial" font-size="14" fill="#E50914" text-anchor="middle">${title.substring(0,25)}</text></svg>`)}`;
             const status = req.status || 'pending';
             const isCam = status === 'not_available' &&
@@ -4544,6 +4607,7 @@
         async function onRequestRowClick(mediaId) {
             const req = userRequests.get(mediaId);
             if (!req) return;
+            if (req.provider === 'persian') { await loadPersianCatalog(); return openPersianTitle(req.catalogId, req); }
             const tmdbId = req.tmdbId || mediaId.split('-').slice(1).join('-');
             const mediaType = req.mediaType || mediaId.split('-')[0];
             try {
@@ -4644,5 +4708,7 @@
             }
         }
     </script>
+    <script src="persian-search.js"></script>
+    <script src="persian.js"></script>
 </body>
 </html>
