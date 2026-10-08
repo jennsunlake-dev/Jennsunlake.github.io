@@ -4678,7 +4678,7 @@
                 // what, so when the API started returning 500 every sender still saw
                 // "Thanks for your feedback!" while the message was silently dropped.
                 // Throw on a bad status so the catch below shows the real error.
-                const feedbackRes = await fetch('https://notflix-request.vercel.app/api/webhook/feedback', {
+                const feedbackRes = await fetch('https://notflix-api.dayhill12.workers.dev/api/webhook/feedback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
