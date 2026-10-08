@@ -4673,7 +4673,12 @@
             submitBtn.disabled = true;
 
             try {
-                await fetch('https://notflix-request.vercel.app/api/webhook/feedback', {
+                // fetch() only rejects on a NETWORK failure — an HTTP 500 resolves
+                // normally. Without this check the success panel below ran no matter
+                // what, so when the API started returning 500 every sender still saw
+                // "Thanks for your feedback!" while the message was silently dropped.
+                // Throw on a bad status so the catch below shows the real error.
+                const feedbackRes = await fetch('https://notflix-request.vercel.app/api/webhook/feedback', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -4683,6 +4688,9 @@
                         message: text
                     })
                 });
+                if (!feedbackRes.ok) {
+                    throw new Error('Feedback endpoint returned HTTP ' + feedbackRes.status);
+                }
 
                 body.innerHTML = '<div class="feedback-success"><span class="checkmark">&#10004;&#65039;</span><span style="font-size:18px;font-weight:600;color:var(--text-primary);">Thanks for your feedback!</span></div>';
                 setTimeout(() => {
