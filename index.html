@@ -3885,8 +3885,18 @@
             // request from September, and a 4K copy in Plex since October.
             // Apply the same precedence getStatusInfo() ends on.
             const plexAvail = globalPlexAvailability.get(mediaId);
-            if (plexAvail && plexAvail.available && !plexAvail.partial) {
+            if (plexAvail && plexAvail.available) {
                 const isTv = mediaId.startsWith('tv-');
+                if (isTv && plexAvail.partial) {
+                    // We hold SOME of this show. getStatusInfo() says "Request
+                    // Missing Episodes" here, so say exactly that — skipping the
+                    // partial case would leave the two writers disagreeing again,
+                    // just for part-owned series instead of films.
+                    btn.textContent = 'Request Missing Episodes';
+                    btn.className = 'req-btn default';
+                    btn.disabled = false;
+                    return;
+                }
                 btn.textContent = 'Available on Plex';
                 btn.className = 'req-btn available';
                 btn.disabled = !isTv;   // TV stays clickable for missing episodes
