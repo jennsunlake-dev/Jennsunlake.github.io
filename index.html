@@ -4056,15 +4056,29 @@
         async function loadGlobalStatuses() {
             try {
                 const response = await window.apiClient.getGlobalStatuses();
-                globalRequestStatuses = new Map(Object.entries(response.statuses || {}));
-            } catch (e) {}
+                // Only swap the map in when the payload really is a status set.
+                // An error body (the API returns {error,message} on failure) has no
+                // `statuses` key, and `|| {}` turned that into an EMPTY map — so a
+                // momentary backend problem looked exactly like "nothing is
+                // requested", and every card flipped back to its default label.
+                if (response && response.statuses && typeof response.statuses === 'object') {
+                    globalRequestStatuses = new Map(Object.entries(response.statuses));
+                }
+            } catch (e) { /* keep the last good map rather than showing wrong state */ }
         }
 
         async function loadGlobalPlexAvailability() {
             try {
                 const response = await window.apiClient.getGlobalPlexAvailability();
-                globalPlexAvailability = new Map(Object.entries(response.availability || {}));
-            } catch (e) {}
+                // Same guard as above, and it matters more here: this map is what
+                // overrides a stale request status with "Available on Plex". When a
+                // failed fetch blanked it, titles that ARE in the library fell back
+                // to whatever old status they had — which is why a card could sit
+                // there alternating between "Available on Plex" and "CAM only".
+                if (response && response.availability && typeof response.availability === 'object') {
+                    globalPlexAvailability = new Map(Object.entries(response.availability));
+                }
+            } catch (e) { /* keep the last good map */ }
         }
 
         // Refresh all visible card buttons with current global + user status
@@ -4132,9 +4146,9 @@
             // backend, so we (a) never poll a backgrounded tab, and (b) poll the two
             // feeds at different rates. Request statuses change minute-to-minute;
             // Plex availability changes a couple of times a day.
-            const STATUS_POLL_IDLE_MS = 15000;
+            const STATUS_POLL_IDLE_MS = 5000;
             const STATUS_POLL_ACTIVE_MS = 4000;   // while something is downloading
-            const AVAILABILITY_POLL_MS = 120000;
+            const AVAILABILITY_POLL_MS = 20000;
 
             // Adaptive cadence: poll fast enough that the live speed/percentage
             // actually moves while a download is running, and back off to the
