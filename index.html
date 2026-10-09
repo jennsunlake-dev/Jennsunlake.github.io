@@ -3874,6 +3874,25 @@
         function updateButtonStatus(mediaId, status, data) {
             const btn = document.getElementById('btn-' + mediaId);
             if (!btn) return;
+
+            // OWNING IT BEATS ANY REQUEST STATUS. This function is a second
+            // button writer that deliberately bypasses getStatusInfo(), and it
+            // used to ignore the Plex feed completely — so for a title that is
+            // in the library but whose last request failed, the two writers
+            // disagreed and the button visibly flipped between
+            // "Available on Plex" and "CAM only — Try again later" as each one
+            // fired. Spider-Man: Brand New Day did exactly this: a CAM-only
+            // request from September, and a 4K copy in Plex since October.
+            // Apply the same precedence getStatusInfo() ends on.
+            const plexAvail = globalPlexAvailability.get(mediaId);
+            if (plexAvail && plexAvail.available && !plexAvail.partial) {
+                const isTv = mediaId.startsWith('tv-');
+                btn.textContent = 'Available on Plex';
+                btn.className = 'req-btn available';
+                btn.disabled = !isTv;   // TV stays clickable for missing episodes
+                return;
+            }
+
             btn.disabled = true;
 
             const [text, cls] = statusLabel(status);
