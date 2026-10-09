@@ -4455,8 +4455,19 @@
         // hides itself entirely when nothing is running.
         function getActiveDownloads() {
             const active = [];
+            const seen = new Set();
             for (const [mediaId, req] of userRequests) {
-                if (isInFlight(req.status)) active.push({ mediaId, ...req });
+                if (isInFlight(req.status)) { active.push({ mediaId, ...req }); seen.add(mediaId); }
+            }
+            // Episodes grabbed automatically from a subscription are never in
+            // `userRequests` — nobody pressed a button for them — so this strip
+            // sat empty while the server was busy fetching the week's TV. The
+            // global feed already carries their status and live telemetry, so
+            // show those too and mark them as not-yours for the click handler.
+            for (const [mediaId, st] of globalRequestStatuses) {
+                if (seen.has(mediaId) || !isInFlight(st.status)) continue;
+                active.push({ mediaId, ...st, notMine: true });
+                seen.add(mediaId);
             }
             return active;
         }
@@ -4626,7 +4637,7 @@
         }
 
         async function onRequestRowClick(mediaId) {
-            const req = userRequests.get(mediaId);
+            const req = userRequests.get(mediaId) || globalRequestStatuses.get(mediaId);
             if (!req) return;
             if (req.provider === 'persian') { await loadPersianCatalog(); return openPersianTitle(req.catalogId, req); }
             const tmdbId = req.tmdbId || mediaId.split('-').slice(1).join('-');
