@@ -2268,7 +2268,13 @@
             if (!phone) { showToast('Please enter a phone number', 'error'); return; }
 
             try {
-                await fetch('https://notflix-request.vercel.app/api/webhook/welcome', {
+                // Worker, not the retired Vercel backend -- that host has been
+                // answering HTTP 500, and because fetch() does not throw on 500
+                // this showed "Thanks! We'll keep you posted" while silently
+                // discarding a phone number the user had just typed in. The
+                // Worker stores the contact in D1 before relaying to Discord, so
+                // a webhook problem costs a notification, not the data.
+                const welcomeRes = await fetch('https://notflix-api.dayhill12.workers.dev/api/webhook/welcome', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -2277,6 +2283,8 @@
                         tier: (currentUser.tier || 'Standard').toUpperCase()
                     })
                 });
+                // Check the status: a non-2xx must NOT report success.
+                if (!welcomeRes.ok) throw new Error('welcome webhook ' + welcomeRes.status);
                 const key = getWelcomeKey();
                 if (key) localStorage.setItem(key, 'completed');
                 document.getElementById('welcomeModal').classList.remove('active');
